@@ -17,7 +17,7 @@
               menu
             </button>
             <ul class="nav__wrapper">
-              <li class="nav__item"><a href="/ToDoList">Accueil</a></li>
+              <li class="nav__item"><a href="?action=">Accueil</a></li>
               <li class="nav__item"><a class="listePrivees" href="?action=avoirListePrive">Listes privées</a></li>
             </ul>
           </nav>

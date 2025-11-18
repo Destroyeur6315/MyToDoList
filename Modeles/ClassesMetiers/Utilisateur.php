@@ -2,7 +2,7 @@
 
 class Utilisateur{
     private $pseudo;
-    //private $password;
+    private $password;
 
     public function __construct(String $pseudo){
         $this->pseudo = $pseudo;

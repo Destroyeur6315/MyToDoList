@@ -17,7 +17,7 @@ class FrontController{
         try{
             $Utilisateur = $modelUtilisateur->isUser();
 
-            $action = $_REQUEST["action"];
+            $action = $_REQUEST["action"] ?? NULL;
 
             if(in_array($action, $listeActon_Utilisateur)){
                 

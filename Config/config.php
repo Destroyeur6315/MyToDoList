@@ -4,9 +4,9 @@
 $rep=__DIR__.'/../';
 
 //BD
-$user='userPHP';
-$pass='guerre';
-$dsn='mysql:host=localhost;dbname=php';
+$user='user';
+$pass='password';
+$dsn='mysql:host=db;dbname=todolist;';
 
 //Vues
 $vues['accueil']='Vues/accueil.php';

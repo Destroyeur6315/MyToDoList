@@ -160,7 +160,7 @@ class ControllerUtilisateur{
 
         $model = new Model();
 
-        $valide = $_POST["valide"];
+        $valide = $_POST["action"];
         $valide = Nettoyer::nettoyer_string($valide);
         $possesseur = $_SESSION['login'];
         $possesseur = Nettoyer::nettoyer_string($possesseur);

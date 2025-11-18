@@ -1,7 +1,7 @@
 <?php
 
-//require_once(__DIR__.'../ClassesMetiers/connection.php');
-//require_once(__DIR__.'../ClassesMetiers/tache.php');
+// require_once(__DIR__.'../ClassesMetiers/connection.php');
+// require_once(__DIR__.'../ClassesMetiers/tache.php');
 
 class Model{
 

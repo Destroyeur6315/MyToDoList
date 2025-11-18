@@ -10,11 +10,11 @@ class UtilisateurGateway{
     }
 
     public function getUtilisateur($pseudo, $motDePasse){
-        $query = 'SELECT * FROM Utilisateur WHERE pseudo=:pseudo AND motdepasse=:motDePasse';
+        $query = 'SELECT * FROM utilisateur WHERE pseudo=:pseudo AND password=:password';
 
         $this->con->executeQuery($query, array(
             'pseudo' => array($pseudo, PDO::PARAM_STR),
-            'motDePasse' => array($motDePasse, PDO::PARAM_STR)
+            'password' => array($motDePasse, PDO::PARAM_STR)
         ));
 
         $result = $this->con->getResults();

@@ -8,12 +8,9 @@ class TacheGateway {
     public function __construct(Connection $con){
         $this->con = $con;
     }
-    
-    //public function deleteTache(String $nomDeLaliste, $Nom){}
-    //public function modifDescription(String $nom, String $nomDeLaListe, String $nouvelledescription)
 
     public function createTache(String $description, String $idListe, $termine){
-        $query = "INSERT INTO Tache VALUES(:id, :description, :idListe, :termine)";
+        $query = "INSERT INTO tache VALUES(:id, :description, :idListe, :termine)";
 
         $this->con->executeQuery($query, array(
             ':id' => array(NULL, PDO::PARAM_INT),

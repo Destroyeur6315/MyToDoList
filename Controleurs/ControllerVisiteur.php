@@ -10,7 +10,7 @@ class ControllerVisiteur{
         $dVueEreur = array();
 
         try{
-            $action = $_REQUEST["action"];
+            $action = $_REQUEST["action"] ?? NULL;
             
             switch($action){
                 case NULL:
@@ -44,7 +44,7 @@ class ControllerVisiteur{
             } 
 
         }catch(PDOException $e){
-            $dVueEreur[] = "Erreur PDO";
+            $dVueEreur[] = "--Erreur PDO--";
             $dVueEreur[] = $e->getMessage();
             require($rep.$vues["erreur"]);
             
@@ -174,7 +174,7 @@ class ControllerVisiteur{
 
         $model = new Model();
 
-        $valide = $_POST["valide"];
+        $valide = $_POST["action"];
         $valide = Nettoyer::nettoyer_string($valide);
         
         if(empty($valide)){

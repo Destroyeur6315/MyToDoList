@@ -1,6 +1,6 @@
 # MyToDoList
 
-Application web PHP simple permettant de créer et gérer des listes de tâches publiques et privées réalisé lors de mon BUT informatique.\
+Application web PHP simple permettant de créer et gérer des listes de tâches publiques et privées.\
 Basée sur une architecture MVC (dossiers `Controleurs`, `Modeles`, `Vues`) avec un point d'entrée unique : `index.php`.
 
 ## ✨ Fonctionnalités principales
@@ -12,7 +12,14 @@ Basée sur une architecture MVC (dossiers `Controleurs`, `Modeles`, `Vues`) avec
     validation :
     -   Les tâches terminées apparaissent après les tâches actives.
     -   Elles ne peuvent plus être modifiées.
--   Impossible de convertir une tâche privée en tâche publique.
+
+## ✨ Fonctionnalités à venir
+
+-   Convertir une tâche privée en tâche publique.
+-   Créer un compte utilisateur
+-   Utiliser des secrets pour les identifiants de MySQL
+-   Hacher le mot de passe dans la base de données pour plus de sécurité
+-   Utiliser une authentification plus robuste comme JWT, OAuth2.0...
 
 ## 📁 Structure du projet
 
@@ -25,33 +32,30 @@ Basée sur une architecture MVC (dossiers `Controleurs`, `Modeles`, `Vues`) avec
 
 ## 🛠️ Prérequis
 
--   PHP 7.4+ ou 8.x
--   Serveur web (Apache/Nginx) ou serveur intégré PHP
--   Base de données si utilisée (MySQL/MariaDB/SQLite)
+-   Seulement Docker
 
-## 🚀 Installation en local
+## 🐳 Lancement avec Docker
 
 1.  Cloner :
 
         git clone https://github.com/Destroyeur6315/MyToDoList.git
         cd MyToDoList
 
-2.  Configurer la base (si utilisée) :
+2.  Lancer les services docker :
 
-        cp config.example.php config.php
+        docker compose
 
-3.  Lancer :
+3.  Executer le fichier setup.php pour créer la base de données:
 
-        php -S localhost:8000
+        http://localhost:8080/setup.php
 
-## 🐳 Lancement avec Docker
+4.  L'appication est disponible à http://localhost:8080
 
-    docker compose up -d
+Pour administrer la base de données, un phpMyAdmin est disponible à http://localhost:8081 avec user/password comme identifiant
 
-Accès :
-- App : http://localhost:8080\
-- phpMyAdmin : http://localhost:8081
-
+Sur l'application, vous pouvez vous logger à un compte utilisateur par défaut avec les identifiants suivant :
+- Username = user63
+- Password = password63
 
 ## 📜 Licence
 

@@ -23,7 +23,7 @@
               menu
             </button>
             <ul class="nav__wrapper">
-              <li class="nav__item"><a href="/ToDoList">Accueil</a></li>
+              <li class="nav__item"><a href="?action=">Accueil</a></li>
               <li class="nav__item"><a class="listePrivees" href="">Listes privées</a></li>
             </ul>
           </nav>
@@ -139,30 +139,8 @@
         
         </div> 
     </div>
-    <!--
-    <form action="index.php?action=ajouterUneListe" method="post">
-        <input name="nomListe" type="text"> 
-        <button type="submit" value="action">Ajouter une liste</button>
-    </form>
-
-    <form action="index.php?action=ajouterUneTache" method="post">
-        <input name="nomTache" type="text"> 
-        <button type="submit" value="action">Ajouter une tâche</button>
-    </form>
-
-    <br>
-        -->
-
-   
-    <!--
-    <form method="post">
-        <input name="nomListe" type="text"> 
-        <input type="submit" name="action" value="ajouterUneListe">
-    </form>
-                    -->
 
     <!-- footer -->
-
     <div class="MyContainer">
         <footer class="site-footer">
             <div class="container">

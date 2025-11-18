@@ -22,7 +22,7 @@
               menu
             </button>
             <ul class="nav__wrapper">
-              <li class="nav__item"><a href="/ToDoList">Accueil</a></li>
+              <li class="nav__item"><a href="">Accueil</a></li>
               <li class="nav__item"><a class="listePrivees" href="?action=avoirListePrive">Listes privées</a></li>
             </ul>
           </nav>
@@ -92,15 +92,28 @@
                                     {
                                         ?>
                                         <li> 
-                                            <form action="?idTache=<? echo $tache->getId() ?>" method="post">
+                                            <!-- <form action="?idTache=<? #echo $tache->getId() ?>" method="post">
                                                  <input type="checkbox" name="valide" id="checkboxInput" name="cb1">
-                                                 <label id="checkboxLabel" for="cb1"> <? echo $tache->getDescription(); 
+                                                 <label id="checkboxLabel" for="cb1"> <? #echo $tache->getDescription(); 
                                                     ?> </label>
                                                  <input type="submit" value="X" class="boutonChecked">
                                                 
-                                                 <!-- action !!!!!!!!!! -->
+                                                 
                                                 <input type="hidden" name="action" value="tacheChecked"> 
-                                            </form> 
+                                            </form>  -->
+
+                                            <form action="?idTache=<?php echo $tache->getId(); ?>" method="post">
+                                                <input type="checkbox" name="valide" id="checkboxInput" value="1">
+                                                
+                                                <label for="checkboxInput">
+                                                    <?php echo $tache->getDescription(); ?>
+                                                </label>
+
+                                                <input type="submit" value="X" class="boutonChecked">
+
+                                                <!-- action -->
+                                                <input type="hidden" name="action" value="tacheChecked"> 
+                                            </form>
                                         </li>
 
                                         <form action="?idTache=<? echo $tache->getId() ?>" method="post">
