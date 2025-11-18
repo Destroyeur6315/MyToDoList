@@ -1,8 +1,62 @@
-# To Do List 
+# MyToDoList
 
-1. Il y a deux types d'acteurs : Visiteur et Utilisateur
-2. Chaque acteur peut : supprimer/ajouter des listes et des tâches publiques
-3. L'utilisateur après s'être connecté, peut supprimer/ajouter des tâches privées
-4. Une tâche peut être cochée (si cochée, devient rouge et barré) et l'acteur peut validé ce choix en cliquant sur le bouton juste à côté du nom de la tâche. Si cette tâche est coché puis validé par l'utilisateur, elle devient une tâche terminée et est affichée àprès toutes les tâches non terminées. 
-5. Les tâches terminées ne peuvent plus être modifiées : ni cochée ni supprimée. Il faudra supprimer la liste qui les contient pour les supprimer.
-6. Impossible de passer une tâche privée en tâche publique
+Application web PHP simple permettant de créer et gérer des listes de tâches publiques et privées réalisé lors de mon BUT informatique.\
+Basée sur une architecture MVC (dossiers `Controleurs`, `Modeles`, `Vues`) avec un point d'entrée unique : `index.php`.
+
+## ✨ Fonctionnalités principales
+
+-   Deux types d'acteurs : **Visiteur** et **Utilisateur** (connecté).
+-   Création / suppression de **listes** et de **tâches publiques**.
+-   L'utilisateur connecté peut créer/supprimer des **tâches privées**.
+-   Une tâche peut être **cochée** → elle devient « terminée » après
+    validation :
+    -   Les tâches terminées apparaissent après les tâches actives.
+    -   Elles ne peuvent plus être modifiées.
+-   Impossible de convertir une tâche privée en tâche publique.
+
+## 📁 Structure du projet
+
+    MyToDoList/
+    ├─ Controleurs/
+    ├─ Modeles/
+    ├─ Vues/
+    ├─ index.php
+    └─ README.md
+
+## 🛠️ Prérequis
+
+-   PHP 7.4+ ou 8.x
+-   Serveur web (Apache/Nginx) ou serveur intégré PHP
+-   Base de données si utilisée (MySQL/MariaDB/SQLite)
+
+## 🚀 Installation en local
+
+1.  Cloner :
+
+        git clone https://github.com/Destroyeur6315/MyToDoList.git
+        cd MyToDoList
+
+2.  Configurer la base (si utilisée) :
+
+        cp config.example.php config.php
+
+3.  Lancer :
+
+        php -S localhost:8000
+
+## 🐳 Lancement avec Docker
+
+    docker compose up -d
+
+Accès :
+- App : http://localhost:8080\
+- phpMyAdmin : http://localhost:8081
+
+
+## 📜 Licence
+
+MIT licence.
+
+## 👤 Auteur
+
+**Destroyeur6315**
