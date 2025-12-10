@@ -54,7 +54,7 @@ cd MyToDoList
 2. **Lancer les services Docker :**
 
 ```
-docker compose
+docker compose up
 ```
 
 3. **Exécuter le fichier setup.php pour créer la base de données :**
