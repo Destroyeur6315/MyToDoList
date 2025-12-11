@@ -1,6 +1,6 @@
 # 📸 Aperçu de l'application
 
-![Aperçu de l'application](./screenshot.png)
+![Aperçu de l'application](./picture/home.png)
 
 ---
 

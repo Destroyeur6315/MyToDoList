@@ -424,87 +424,69 @@
             </form>
         </div>
 
-        <?php if (!empty($tab_liste)) : ?>
+        <!-- TodoLists Grid -->
+        <div class="lists-container">
 
-            <!-- TodoLists Grid -->
-            <div class="lists-container">
-
-                <?php foreach ($tab_liste as $liste) : ?>
-                    <div class="todolist-card">
-                        <div class="list-header">
-                            <h2 class="list-title"><?php echo $liste->getNom(); ?></h2>
-                            <form action="?idListe=<?php echo $liste->getId(); ?>" method="post" class="add-task-form">
-                                <input name="NewTache" type="text" placeholder="Nouvelle tâche..." required>
-                                <input type="hidden" name="action" value="ajouterUneTache">
-                                <button type="submit" class="btn-add">Ajouter</button>
-                            </form>
-                        </div>
-
-                        <ul class="tasks-list">
-                            <?php foreach ($tab_tache as $tache) : ?>
-                                <?php if($tache->getIdListe() == $liste->getId() && !$tache->getTermine()) : ?>
-                                    <li class="task-item">
-                                        <div class="task-content">
-                                            <form action="?idTache=<?php echo $tache->getId(); ?>" method="post" style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                                                <input type="checkbox" name="valide" class="task-checkbox" value="1" onchange="this.form.submit()">
-                                                <label class="task-label"><?php echo $tache->getDescription(); ?></label>
-                                                <input type="hidden" name="action" value="tacheChecked">
-                                            </form>
-                                        </div>
-                                        <form action="?idTache=<?php echo $tache->getId(); ?>" method="post" style="display: inline;">
-                                            <input type="hidden" name="action" value="supprimerUneTache">
-                                            <button type="submit" class="btn-delete-task">✕</button>
-                                        </form>
-                                    </li>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
-                            
-                            <?php 
-                            $hasCompleted = false;
-                            foreach($tab_tache as $tache) {
-                                if($tache->getIdListe() == $liste->getId() && $tache->getTermine()) {
-                                    if (!$hasCompleted) {
-                                        echo '<div class="completed-tasks"><div class="completed-tasks-title">Tâches terminées</div>';
-                                        $hasCompleted = true;
-                                    }
-                                    echo '<div class="completed-task">✓ '.$tache->getDescription().'</div>';
-                                }
-                            }
-                            if ($hasCompleted) {
-                                echo '</div>';
-                            }
-                            ?>
-                        </ul>
-
-                        <div class="list-footer">
-                            <form action="?idListe=<?php echo $liste->getId(); ?>" method="post">
-                                <input type="hidden" name="action" value="supprimerUneListe">
-                                <button type="submit" class="btn-delete-list">Supprimer la liste</button>
-                            </form>
-                        </div>
+            <?php foreach ($tab_liste as $liste) : ?>
+                <div class="todolist-card">
+                    <div class="list-header">
+                        <h2 class="list-title"><?php echo $liste->getNom(); ?></h2>
+                        <form action="?idListe=<?php echo $liste->getId(); ?>" method="post" class="add-task-form">
+                            <input name="NewTache" type="text" placeholder="Nouvelle tâche..." required>
+                            <input type="hidden" name="action" value="ajouterUneTache">
+                            <button type="submit" class="btn-add">Ajouter</button>
+                        </form>
                     </div>
-                <?php endforeach; ?>
-            
-            </div>
+
+                    <ul class="tasks-list">
+                        <?php foreach ($tab_tache as $tache) : ?>
+                            <?php if($tache->getIdListe() == $liste->getId() && !$tache->getTermine()) : ?>
+                                <li class="task-item">
+                                    <div class="task-content">
+                                        <form action="?idTache=<?php echo $tache->getId(); ?>" method="post" style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                                            <input type="checkbox" name="valide" class="task-checkbox" value="1" onchange="this.form.submit()">
+                                            <label class="task-label"><?php echo $tache->getDescription(); ?></label>
+                                            <input type="hidden" name="action" value="tacheChecked">
+                                        </form>
+                                    </div>
+                                    <form action="?idTache=<?php echo $tache->getId(); ?>" method="post" style="display: inline;">
+                                        <input type="hidden" name="action" value="supprimerUneTache">
+                                        <button type="submit" class="btn-delete-task">✕</button>
+                                    </form>
+                                </li>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                        
+                        <?php 
+                        $hasCompleted = false;
+                        foreach($tab_tache as $tache) {
+                            if($tache->getIdListe() == $liste->getId() && $tache->getTermine()) {
+                                if (!$hasCompleted) {
+                                    echo '<div class="completed-tasks"><div class="completed-tasks-title">Tâches terminées</div>';
+                                    $hasCompleted = true;
+                                }
+                                echo '<div class="completed-task">✓ '.$tache->getDescription().'</div>';
+                            }
+                        }
+                        if ($hasCompleted) {
+                            echo '</div>';
+                        }
+                        ?>
+                    </ul>
+
+                    <div class="list-footer">
+                        <form action="?idListe=<?php echo $liste->getId(); ?>" method="post">
+                            <input type="hidden" name="action" value="supprimerUneListe">
+                            <button type="submit" class="btn-delete-list">Supprimer la liste</button>
+                        </form>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        
+        </div>
+        
     </div>
 
-    <?php else : ?>
-
-        <div style="text-align:center; margin:50px 0;">
-            <span style="
-                display:inline-block;
-                font-size:36px;
-                font-weight:bold;
-                color:#888;
-                transform:rotate(-5deg);
-                opacity:0.7;
-                font-family: 'Arial', sans-serif;
-            ">
-                Aucune tâche pour le moment<br>🎉 Ta to-do list est vide !
-            </span>
-        </div>
-
-    <?php endif; ?>
     <!-- Fin main-content -->
 
     <!-- Footer -->
