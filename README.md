@@ -8,6 +8,51 @@
 
 Application web PHP simple permettant de créer et gérer des listes de tâches publiques et privées. Basée sur une architecture MVC (dossiers `Controleurs`, `Modeles`, `Vues`) avec un point d'entrée unique : `index.php`.
 
+## 🧱 Architecture MVC
+
+L’application suit une architecture **MVC** (**Modèle - Vue - Contrôleur**), un modèle d’organisation très utilisé dans le développement web.
+
+![Aperçu de l'application](./picture/MVC.jpg)
+
+### 📖 Qu’est-ce que le MVC ?
+
+Le MVC sépare une application en trois parties distinctes :
+
+- **Modèle (Model)** : gère les données et les interactions avec la base de données.
+- **Vue (View)** : affiche les informations à l’utilisateur.
+- **Contrôleur (Controller)** : fait le lien entre la vue et le modèle, et gère la logique métier.
+
+Concrètement :
+- l’utilisateur interagit avec la **Vue** ;
+- la **Vue** transmet l’action au **Contrôleur** ;
+- le **Contrôleur** demande au **Modèle** de lire ou modifier les données ;
+- le **Modèle** renvoie les résultats ;
+- le **Contrôleur** retourne ensuite une **Vue** mise à jour.
+
+### ✅ Pourquoi utiliser MVC ?
+
+Utiliser MVC présente plusieurs avantages :
+
+#### 1. Une meilleure organisation du code
+Chaque partie de l’application a un rôle précis.  
+Cela évite de mélanger l’affichage, la logique métier et l’accès aux données dans un seul fichier.
+
+#### 2. Une maintenance plus simple
+Quand le projet grandit, il devient plus facile de retrouver où modifier une fonctionnalité :
+- dans le **Modèle** pour les données,
+- dans la **Vue** pour l’affichage,
+- dans le **Contrôleur** pour le traitement.
+
+#### 3. Une évolution plus facile
+Cette séparation permet d’ajouter de nouvelles fonctionnalités plus proprement, sans casser tout le reste de l’application.
+
+#### 4. Un code plus lisible et réutilisable
+Le code est plus clair, donc plus simple à comprendre, à tester et à réutiliser dans d’autres parties du projet.
+
+#### 5. Une bonne pratique pour apprendre le développement web
+Le MVC est une architecture très répandue dans de nombreux frameworks et projets professionnels.  
+L’utiliser dans ce projet permet donc d’adopter de bonnes habitudes dès le départ.
+
 ## ✨ Fonctionnalités principales
 
 - Deux types d'acteurs : **Visiteur** et **Utilisateur** (connecté).
