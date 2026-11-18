@@ -14,7 +14,7 @@ Listes, quick wins, suivi « en cours » et historique, avec une API REST et une
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES_modules-F7DF1E?logo=javascript&logoColor=black)
 
-[Quickstart](#-quickstart) · [Fonctionnalités](#-fonctionnalités) · [API REST](#-api-rest) · [Sécurité](#-sécurité) · [Structure](#-structure-du-projet)
+[Quickstart](#-quickstart) · [Fonctionnalités](#-fonctionnalités) · [API REST](#-api-rest) · [Sécurité](#-sécurité) · [Structure](#-structure-du-projet) · [Contribuer](#-contribuer)
 
 </div>
 
@@ -149,8 +149,6 @@ L'interface se synchronise avec `GET` / `PUT /api/state`. Les routes par ressour
 > [!WARNING]
 > Pour un serveur exposé sur Internet : activer **HTTPS**, lancer avec `NODE_ENV=production`, définir `TRUST_PROXY` et restreindre l'accès au dossier `data/` (le contenu des tâches y est en clair). L'application n'offre volontairement **ni récupération de mot de passe, ni validation d'email, ni MFA**.
 
-Voir aussi [`security/README.md`](security/README.md).
-
 ## 📁 Structure du projet
 
 ```text
@@ -175,3 +173,94 @@ mytodolist/
 ├── docs/                     # Logo et captures d'écran du README
 └── data/                     # Base SQLite (ignorée par Git)
 ```
+
+## 🤝 Contribuer
+
+Les contributions sont les bienvenues : correction de bug, nouvelle fonctionnalité, documentation ou simple suggestion.
+
+### Signaler un bug ou proposer une idée
+
+Ouvrir une [issue](https://github.com/Destroyeur6315/MyToDoList/issues) en précisant :
+
+- pour un bug : les étapes pour le reproduire, le résultat attendu et le résultat obtenu, le navigateur et la version de Node.js ;
+- pour une idée : le besoin auquel elle répond et, si possible, une proposition d'interface.
+
+> [!CAUTION]
+> Ne jamais signaler une **faille de sécurité** dans une issue publique. Utiliser le [signalement privé de vulnérabilité](https://github.com/Destroyeur6315/MyToDoList/security/advisories/new) de GitHub (onglet **Security** → **Report a vulnerability**).
+
+### Proposer une modification
+
+1. **Forker** le dépôt, puis le cloner :
+
+   ```bash
+   git clone https://github.com/<votre-compte>/MyToDoList.git
+   cd MyToDoList
+   npm install
+   npm run build
+   ```
+
+2. **Créer une branche** à partir de `main`, nommée selon le type de changement :
+
+   ```bash
+   git checkout -b feat/filtre-par-criticite   # ou fix/…, docs/…, refactor/…
+   ```
+
+3. **Développer** avec `npm run dev` et `npm run watch:css` (voir [Développement](#développement)).
+
+4. **Vérifier** que les tests passent, et en ajouter pour toute nouvelle route ou règle de validation :
+
+   ```bash
+   npm test
+   ```
+
+5. **Commiter** en suivant la convention du projet (voir ci-dessous), puis pousser la branche.
+
+6. **Ouvrir une Pull Request** vers `main` en décrivant le changement, sa raison et la façon de le tester. Joindre une capture d'écran pour toute modification visuelle, en thème clair et en thème sombre.
+
+> [!IMPORTANT]
+> Ne pas pousser directement sur `main` : chaque push sur cette branche déclenche un **déploiement automatique en production**. Toute modification passe par une Pull Request.
+
+### Convention de commits
+
+Les messages sont rédigés **en anglais** et combinent un [gitmoji](https://gitmoji.dev/) et le format [Conventional Commits](https://www.conventionalcommits.org/) :
+
+```text
+<gitmoji> <type>(<scope>): <description courte à l'impératif>
+```
+
+| Gitmoji | Type | Usage |
+|---|---|---|
+| `:sparkles:` | `feat` | Nouvelle fonctionnalité |
+| `:bug:` | `fix` | Correction de bug |
+| `:memo:` | `docs` | Documentation |
+| `:recycle:` | `refactor` | Restructuration sans changement de comportement |
+| `:white_check_mark:` | `test` | Ajout ou modification de tests |
+| `:lipstick:` | `style` | Interface et styles |
+| `:lock:` | `fix` | Correction de sécurité |
+| `:wrench:` | `chore` | Configuration, outillage, dépendances |
+
+Exemples tirés de l'historique :
+
+```text
+:bug: fix(security): honour reverse proxy headers in origin check
+:sparkles: feat(ui): add favicon and Apple touch icon
+```
+
+### Conventions de code
+
+- **Serveur** : CommonJS avec `'use strict'`, sans framework supplémentaire. Toute variable d'environnement est lue dans [`src/config.js`](src/config.js), jamais ailleurs.
+- **Front-end** : modules ES natifs, sans framework ni étape de bundling.
+- **Styles** : classes Tailwind dans le HTML et styles personnalisés dans [`styles/main.css`](styles/main.css). Ne jamais modifier `public/css/main.css` à la main : le régénérer avec `npm run build:css` et le commiter avec le reste.
+- **Langues** : le code et les commentaires sont en anglais, les textes affichés à l'utilisateur en français.
+- **Sécurité** : requêtes SQL toujours paramétrées, entrées validées dans [`src/domain/validation.js`](src/domain/validation.js), aucun script inline (la CSP l'interdit) et aucune ressource chargée depuis un service tiers.
+- **Documentation** : commenter les fonctions exportées en JSDoc, et mettre à jour ce README si le comportement, la configuration ou l'API change.
+
+### Vérifications automatiques
+
+Chaque Pull Request déclenche les workflows GitHub Actions de [`.github/workflows/`](.github/workflows/). Ils doivent tous passer avant la fusion :
+
+| Workflow | Vérifications |
+|---|---|
+| **CI - Tests** | Tests de l'API et de la validation |
+| **Security** | Analyse du code (Semgrep), audit des dépendances (`npm audit`), scan dynamique (OWASP ZAP) |
+| **Quality** | Quality Gate SonarQube Cloud |
