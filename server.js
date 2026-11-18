@@ -38,6 +38,6 @@ function start() {
   process.on('SIGINT', shutdown);
 }
 
-if (require.main === module) start();
-
-module.exports = { start };
+// Always start: hosting platforms such as Hostinger load this file through
+// their own launcher, so a `require.main === module` guard would never fire.
+start();
