@@ -5,6 +5,7 @@
  * graceful shutdown. All application logic lives in `src/`.
  */
 
+const path = require('node:path');
 const config = require('./src/config');
 const { openDatabase } = require('./src/db/database');
 const { createApp } = require('./src/app');
@@ -18,6 +19,12 @@ function start() {
   }
 
   const db = openDatabase(config.dbPath);
+  console.log(`Base de données : ${config.dbPath}`);
+  if (config.isProduction && config.dbPath.startsWith(__dirname + path.sep)) {
+    // Git-based deployments replace the app folder: the database would be lost.
+    console.warn('Attention : la base est dans le dossier de l\'application et peut être '
+      + 'écrasée à chaque déploiement. Définir DB_PATH vers un dossier persistant.');
+  }
   const app = createApp({ db, config });
 
   const server = app.listen(config.port, () => {
