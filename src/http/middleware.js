@@ -24,8 +24,14 @@ function noStore(req, res, next) {
 function requireSameOrigin(req, res, next) {
   if (SAFE_METHODS.has(req.method)) return next();
   const origin = req.get('origin');
-  const expected = `${req.protocol}://${req.get('host')}`;
-  if (origin && origin !== expected) return next(new HttpError(403, 'Origine non autorisée'));
+  // `req.protocol` and `req.host` honour X-Forwarded-* headers when the
+  // `trust proxy` setting is enabled (TRUST_PROXY), e.g. behind an HTTPS proxy.
+  const expected = `${req.protocol}://${req.host}`;
+  if (origin && origin !== expected) {
+    console.warn(`Origine refusée : reçue "${origin}", attendue "${expected}". `
+      + 'Derrière un reverse proxy HTTPS, définir TRUST_PROXY (ex. TRUST_PROXY=1).');
+    return next(new HttpError(403, 'Origine non autorisée'));
+  }
   if (req.get('X-MyToDoList-Request') !== '1') return next(new HttpError(403, 'En-tête de sécurité absent'));
   next();
 }

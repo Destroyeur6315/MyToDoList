@@ -38,7 +38,9 @@ function createApp({ db, config = defaultConfig, now = Date.now }) {
   const rateLimiters = createAuthRateLimiters(config.authRateLimits);
 
   const app = express();
-  if (config.isProduction) app.set('trust proxy', config.trustProxy);
+  // Trust X-Forwarded-* headers from that many reverse proxies (HTTPS
+  // detection, client IP for rate limiting, Origin check).
+  if (config.trustProxy > 0) app.set('trust proxy', config.trustProxy);
   app.disable('x-powered-by');
 
   // Every asset (scripts, CSS, fonts) is self-hosted, so the CSP only allows
