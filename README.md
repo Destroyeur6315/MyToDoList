@@ -1,0 +1,178 @@
+<div align="center">
+
+<img src="docs/logo.svg" alt="Logo MyToDoList" width="96" height="96">
+
+# MyToDoList
+
+**La todo list qui simplifie votre quotidien : avancez par petites victoires.**
+
+Listes, quick wins, suivi « en cours » et historique, avec une API REST et une base SQLite auto-hébergée.
+
+![Node.js](https://img.shields.io/badge/Node.js-24+-339933?logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-node%3Asqlite-003B57?logo=sqlite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES_modules-F7DF1E?logo=javascript&logoColor=black)
+
+[Quickstart](#-quickstart) · [Fonctionnalités](#-fonctionnalités) · [API REST](#-api-rest) · [Sécurité](#-sécurité) · [Structure](#-structure-du-projet)
+
+</div>
+
+---
+
+![Tableau de bord MyToDoList en thème clair](docs/screenshot-light.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshot-dark.png" alt="Tableau de bord en thème sombre"></td>
+    <td width="50%"><img src="docs/screenshot-login.png" alt="Écran de connexion"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Thème sombre</sub></td>
+    <td align="center"><sub>Écran de connexion</sub></td>
+  </tr>
+</table>
+
+## ✨ Fonctionnalités
+
+- **À faire maintenant** : les tâches au meilleur rapport impact / temps sont mises en avant automatiquement (« court + important »).
+- **Quick wins** : repérage des tâches rapides et importantes.
+- **Statuts** *À faire*, *En cours* et *Terminée*, avec un bouton « Démarrer » sur chaque tâche.
+- **Criticité** (basse → critique) et **durée estimée** (quelques minutes → un mois) pour chaque tâche.
+- **Listes multiples** : progression par liste, archivage, masquage par appareil.
+- **Recherche** et filtres par statut.
+- **Historique** des tâches terminées.
+- **Thèmes clair et sombre**, mémorisés par appareil (préférence du système à la première visite).
+- **Comptes utilisateurs** : chaque compte a ses propres listes et tâches.
+- **Auto-hébergé** : aucune dépendance à un CDN ni à un service tiers, polices comprises.
+
+## 🧰 Technologies
+
+| Couche | Technologies |
+|---|---|
+| Serveur | [Node.js 24+](https://nodejs.org/), [Express 5](https://expressjs.com/), [helmet](https://helmetjs.github.io/), [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit) |
+| Base de données | SQLite via le module natif [`node:sqlite`](https://nodejs.org/api/sqlite.html), sans module natif à compiler |
+| Interface | HTML, JavaScript (modules ES, sans framework), [Tailwind CSS v4](https://tailwindcss.com/) |
+| Polices | [Inter](https://rsms.me/inter/) et [Sora](https://fonts.google.com/specimen/Sora), auto-hébergées via [Fontsource](https://fontsource.org/) |
+| Tests | Test runner natif de Node.js (`node --test`) |
+
+## 🚀 Quickstart
+
+**Prérequis :** Node.js **24 ou supérieur** et npm.
+
+```bash
+# 1. Installer les dépendances
+npm install
+
+# 2. Générer les polices et le CSS
+npm run build
+
+# 3. Lancer le serveur
+npm start
+```
+
+Ouvrir **<http://localhost:3000>**, puis cliquer sur **Créer un compte** (mot de passe de 12 caractères minimum).
+
+La base SQLite est créée automatiquement dans `data/mytodolist.sqlite`.
+
+### Développement
+
+```bash
+npm run dev        # serveur rechargé à chaque modification
+npm run watch:css  # dans un second terminal : CSS régénéré en continu
+npm test           # tests d'intégration et unitaires
+```
+
+### Scripts npm
+
+| Commande | Rôle |
+|---|---|
+| `npm start` | Démarre le serveur |
+| `npm run dev` | Démarre le serveur en mode rechargement automatique |
+| `npm test` | Lance les tests |
+| `npm run build` | Copie les polices puis génère le CSS minifié |
+| `npm run build:css` | Génère uniquement `public/css/main.css` à partir de `styles/main.css` |
+| `npm run watch:css` | Régénère le CSS à chaque modification |
+| `npm run build:fonts` | Copie les polices `.woff2` dans `public/fonts/` |
+
+> [!NOTE]
+> `public/css/main.css` est généré par la CLI Tailwind : modifier `styles/main.css`, jamais le fichier généré.
+
+## ⚙️ Configuration
+
+| Variable | Défaut | Description |
+|---|---|---|
+| `PORT` | `3000` | Port HTTP du serveur |
+| `DB_PATH` | `data/mytodolist.sqlite` | Emplacement du fichier SQLite |
+| `NODE_ENV` | — | `production` active le cookie `__Host-` et les protections associées |
+| `TRUST_PROXY` | `0` | Nombre **exact** de reverse proxys devant l'application |
+
+```bash
+PORT=4000 DB_PATH=/srv/mytodolist/mytodolist.sqlite npm start
+```
+
+Les durées de session (`session.maxAgeMs`, `session.idleTimeoutMs`) et les limites de tentatives de connexion se règlent dans [`src/config.js`](src/config.js).
+
+### Sauvegarde
+
+Toutes les données (comptes, listes, tâches, sessions) sont dans le fichier SQLite. Le copier lorsque le serveur est arrêté, ou utiliser l'API de sauvegarde SQLite pendant qu'il tourne. Les fichiers `-wal` et `-shm` éventuels font partie de la base.
+
+## 🔌 API REST
+
+Toutes les requêtes qui modifient des données doivent envoyer l'en-tête `X-MyToDoList-Request: 1`, ainsi que `Content-Type: application/json` lorsqu'elles ont un corps. Après connexion, le navigateur envoie automatiquement le cookie de session.
+
+| Méthode | Route | Rôle |
+|---|---|---|
+| `POST` | `/api/auth/register` | Créer un compte `{ username, password }` |
+| `POST` | `/api/auth/login` | Se connecter `{ username, password }` |
+| `GET` | `/api/auth/me` | Session en cours |
+| `POST` | `/api/auth/logout` | Se déconnecter |
+| `GET` | `/api/state` | État complet `{ lists, tasks, revision, updatedAt }` |
+| `PUT` | `/api/state` | Sauvegarde atomique `{ lists, tasks, revision }` |
+| `GET` / `POST` | `/api/lists` | Lister / créer une liste |
+| `PATCH` / `DELETE` | `/api/lists/:id` | Modifier / supprimer une liste |
+| `GET` / `POST` | `/api/tasks` | Lister / créer une tâche |
+| `PATCH` / `DELETE` | `/api/tasks/:id` | Modifier / supprimer une tâche |
+
+L'interface se synchronise avec `GET` / `PUT /api/state`. Les routes par ressource servent à une application mobile ou à une intégration tierce. Le champ `revision` empêche d'écraser sans le savoir une modification faite ailleurs : une requête obsolète reçoit **409 Conflict**.
+
+## 🔒 Sécurité
+
+- **Mots de passe** hachés avec scrypt (N=2^17, r=8, p=1) et un sel par compte. Les hachés plus anciens sont recalculés automatiquement à la connexion suivante.
+- **Sessions** : jeton aléatoire dans un cookie `HttpOnly` et `SameSite=Lax` (`Secure` en HTTPS). Seul son haché SHA-256 est stocké. Durée de **10 h maximum**, fermeture après **30 min d'inactivité**.
+- **Isolation des données** : chaque requête SQL est filtrée par utilisateur et paramétrée. Quotas de 300 listes et 5 000 tâches par compte.
+- **Anti-force brute sans blocage de compte** : 20 échecs / 15 min par IP, 5 échecs / 15 min par couple IP + identifiant, 10 inscriptions / heure par IP.
+- **CSRF** : vérification de l'origine et de l'en-tête personnalisé.
+- **En-têtes HTTP** via `helmet`, avec une **Content Security Policy stricte** (`default-src 'self'`, aucun script inline, `frame-ancestors 'none'`).
+- Le navigateur ne stocke **aucune donnée de liste**, seulement les préférences d'affichage (thème, listes masquées).
+
+> [!WARNING]
+> Pour un serveur exposé sur Internet : activer **HTTPS**, lancer avec `NODE_ENV=production`, définir `TRUST_PROXY` et restreindre l'accès au dossier `data/` (le contenu des tâches y est en clair). L'application n'offre volontairement **ni récupération de mot de passe, ni validation d'email, ni MFA**.
+
+Voir aussi [`security/README.md`](security/README.md).
+
+## 📁 Structure du projet
+
+```text
+mytodolist/
+├── server.js                 # Point d'entrée : démarrage, purge des sessions, arrêt propre
+├── src/
+│   ├── config.js             # Configuration (variables d'environnement)
+│   ├── app.js                # Assemblage Express (middlewares, routes)
+│   ├── db/                   # SQLite : schéma, migrations, repositories
+│   ├── domain/validation.js  # Validation et normalisation des entrées
+│   ├── security/crypto.js    # Hachage, jetons, identifiants
+│   ├── http/                 # Sessions, limites de tentatives, CSRF, erreurs
+│   └── routes/               # /api/auth, listes et tâches
+├── public/                   # Fichiers servis au navigateur
+│   ├── index.html
+│   ├── css/main.css          # Généré par Tailwind, ne pas modifier
+│   ├── fonts/                # Inter et Sora (.woff2)
+│   └── js/                   # Front-end en modules ES (api, sync, auth, ui/…)
+├── styles/main.css           # Source CSS (Tailwind v4)
+├── scripts/copy-fonts.js     # Copie des polices auto-hébergées
+├── tests/                    # Tests d'intégration et unitaires
+├── docs/                     # Logo et captures d'écran du README
+└── data/                     # Base SQLite (ignorée par Git)
+```
+

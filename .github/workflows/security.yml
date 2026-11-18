@@ -1,0 +1,126 @@
+name: Security - SAST SCA DAST
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  semgrep:
+    name: SAST - Semgrep
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installer Semgrep
+        run: python3 -m pip install --user semgrep
+      - name: Scanner le code source
+        # --error fait echouer le job si Semgrep trouve des resultats.
+        run: |
+          mkdir -p reports
+          semgrep scan --config p/default --error --json --output reports/semgrep.json .
+      - name: Rapport Semgrep
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-report
+          path: reports/semgrep.json
+          if-no-files-found: warn
+
+  npm-audit:
+    name: SCA - npm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Installer les dependances
+        run: npm ci
+      - name: Audit des dependances (high et critical)
+        run: |
+          mkdir -p reports
+          npm audit --audit-level=high --json > reports/npm-audit.json
+      - name: Rapport npm audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: reports/npm-audit.json
+          if-no-files-found: warn
+
+  zap:
+    name: DAST - OWASP ZAP Full Scan (local)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      APP_PORT: '3000'
+      APP_HEALTH_PATH: '/'
+      # Adapter si votre serveur ne demarre pas avec npm start.
+      APP_START_COMMAND: 'npm start'
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Installer les dependances
+        run: npm ci
+      - name: Demarrer Express en arriere-plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Pas de secrets ni services de production dans ce job.
+          bash -lc "$APP_START_COMMAND" > /tmp/express-zap.log 2>&1 &
+          echo $! > /tmp/express-zap.pid
+          for i in $(seq 1 40); do
+            if curl --silent --fail --max-redirs 0 --max-time 2 "http://127.0.0.1:${APP_PORT}${APP_HEALTH_PATH}" > /dev/null; then
+              echo 'Express disponible en local.'
+              exit 0
+            fi
+            if ! kill -0 "$(cat /tmp/express-zap.pid)" 2>/dev/null; then
+              cat /tmp/express-zap.log
+              exit 1
+            fi
+            sleep 2
+          done
+          cat /tmp/express-zap.log
+          echo 'Express ne repond pas sur le port configure.' >&2
+          exit 1
+      - name: ZAP Full Scan - tests actifs sur le serveur local uniquement
+        shell: bash
+        run: |
+          mkdir -p reports/zap
+          chmod 777 reports/zap
+          docker run --rm --network host \
+            -v "$PWD/reports/zap:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-full-scan.py \
+              -t "http://127.0.0.1:${APP_PORT}/" \
+              -m 3 -T 5 -I \
+              -r zap-report.html -J zap-report.json
+          # -I : les alertes WARN restent dans le rapport et ne bloquent pas.
+          # Par defaut les alertes ZAP sont WARN ; personnaliser un rules file
+          # avec des regles FAIL pour rendre le scan bloquant sur ces detections.
+      - name: Rapports ZAP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: reports/zap/
+          if-no-files-found: warn
+      - name: Logs Express (en cas d'echec)
+        if: failure()
+        run: cat /tmp/express-zap.log || true

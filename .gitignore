@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# SQLite database (accounts, tasks, sessions) — never commit user data
+data/*
+!data/.gitkeep
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Generated output
+public/output/
+
+# Tests, coverage and analysis
+coverage/
+.nyc_output/
+.scannerwork/
+
+# Editors and IDEs
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*~
+
+# Operating systems
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini

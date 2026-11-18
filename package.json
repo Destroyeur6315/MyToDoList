@@ -1,0 +1,29 @@
+{
+  "name": "mytodolist",
+  "version": "1.1.0",
+  "private": true,
+  "description": "MyToDoList — listes, quick wins et API REST SQLite",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build:css": "tailwindcss -i styles/main.css -o public/css/main.css --minify",
+    "watch:css": "tailwindcss -i styles/main.css -o public/css/main.css --watch",
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test",
+    "build:fonts": "node scripts/copy-fonts.js",
+    "build": "npm run build:fonts && npm run build:css"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "helmet": "^8.1.0"
+  },
+  "devDependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/sora": "^5.3.0",
+    "@tailwindcss/cli": "^4.3.5",
+    "tailwindcss": "^4.3.5"
+  }
+}
