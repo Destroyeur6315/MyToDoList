@@ -175,4 +175,3 @@ mytodolist/
 ├── docs/                     # Logo et captures d'écran du README
 └── data/                     # Base SQLite (ignorée par Git)
 ```
-
