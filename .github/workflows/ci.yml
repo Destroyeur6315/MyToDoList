@@ -35,4 +35,4 @@ jobs:
       # Les tests utilisent node:test, sans Jest et sans serveur externe.
       # api.test.js lance un serveur Express et une SQLite temporaires.
       - name: Tests API et validation
-        run: node --test tests/api.test.js tests/validation.test.js
+        run: npm test
