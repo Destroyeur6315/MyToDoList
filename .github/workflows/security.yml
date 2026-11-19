@@ -20,9 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Installer Semgrep
-        run: python3 -m pip install --user semgrep
+        run: python3 -m pip install --user semgrep==1.186.0
       - name: Scanner le code source
         # --error fait echouer le job si Semgrep trouve des resultats.
         run: |
@@ -30,7 +30,7 @@ jobs:
           semgrep scan --config p/default --error --json --output reports/semgrep.json .
       - name: Rapport Semgrep
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: semgrep-report
           path: reports/semgrep.json
@@ -41,8 +41,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
           cache: npm
@@ -54,7 +54,7 @@ jobs:
           npm audit --audit-level=high --json > reports/npm-audit.json
       - name: Rapport npm audit
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: npm-audit-report
           path: reports/npm-audit.json
@@ -71,8 +71,8 @@ jobs:
       APP_START_COMMAND: 'npm start'
       NODE_ENV: test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
           cache: npm
@@ -116,7 +116,7 @@ jobs:
           # avec des regles FAIL pour rendre le scan bloquant sur ces detections.
       - name: Rapports ZAP
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: zap-report
           path: reports/zap/

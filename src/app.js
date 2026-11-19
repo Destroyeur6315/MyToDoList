@@ -37,7 +37,10 @@ function createApp({ db, config = defaultConfig, now = Date.now }) {
   });
   const rateLimiters = createAuthRateLimiters(config.authRateLimits);
 
-  const app = express();
+  // CSRF is handled by `requireSameOrigin` (src/http/middleware.js) on every
+  // /api route: Origin check + mandatory custom header, the OWASP "custom
+  // request header" defense. No token middleware (csurf is deprecated) needed.
+  const app = express(); // nosemgrep: javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage
   // Trust X-Forwarded-* headers from that many reverse proxies (HTTPS
   // detection, client IP for rate limiting, Origin check).
   if (config.trustProxy > 0) app.set('trust proxy', config.trustProxy);
