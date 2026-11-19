@@ -33,9 +33,9 @@ SonarQube **Cloud**. Créer un projet sur https://sonarcloud.io puis renseigner 
 
 Le workflow passe les propriétés directement à l'action : pas besoin de `sonar-project.properties`. Il analyse `src/`, déclare `tests/` comme tests et attend le Quality Gate.
 
-**Pas de rapport de couverture déclaré** : les tests partagés ne montrent pas de génération d'un rapport LCOV. Il faudra ajouter la couverture ultérieurement si vous souhaitez l'afficher dans SonarQube.
+**Couverture** : le workflow lance d'abord `npm run test:coverage`, qui génère `coverage/lcov.info` avec la couverture intégrée de `node:test`, puis transmet ce rapport via `sonar.javascript.lcov.reportPaths`.
 
-Les PR provenant de forks n'ont généralement pas accès aux secrets : le job SonarQube échouera sans `SONAR_TOKEN`. Prévoir une politique dédiée si vous acceptez des contributions externes. Ne pas utiliser `pull_request_target` pour analyser du code non fiable avec des secrets.
+Les PR provenant de forks n'ont pas accès aux secrets : le job SonarQube est donc ignoré pour elles (condition `if` du job). Prévoir une politique dédiée si vous acceptez des contributions externes. Ne pas utiliser `pull_request_target` pour analyser du code non fiable avec des secrets.
 
 ## Déclenchement
 
