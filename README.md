@@ -90,6 +90,7 @@ npm test           # tests d'intégration et unitaires
 | `npm start` | Démarre le serveur |
 | `npm run dev` | Démarre le serveur en mode rechargement automatique |
 | `npm test` | Lance les tests |
+| `npm run test:coverage` | Lance les tests et génère le rapport de couverture `coverage/lcov.info` (lu par SonarQube Cloud) |
 | `npm run build` | Copie les polices puis génère le CSS minifié |
 | `npm run build:css` | Génère uniquement `public/css/main.css` à partir de `styles/main.css` |
 | `npm run watch:css` | Régénère le CSS à chaque modification |
@@ -261,6 +262,5 @@ Chaque Pull Request déclenche les workflows GitHub Actions de [`.github/workflo
 
 | Workflow | Vérifications |
 |---|---|
-| **CI - Tests** | Tests de l'API et de la validation |
+| **CI - Tests & Quality** | Tests de l'API et de la validation avec couverture, puis Quality Gate SonarQube Cloud (couverture incluse) |
 | **Security** | Analyse du code (Semgrep), audit des dépendances (`npm audit`), scan dynamique (OWASP ZAP) |
-| **Quality** | Quality Gate SonarQube Cloud |
