@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout avec historique Git
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: Verifier la configuration SonarQube
@@ -34,7 +34,7 @@ jobs:
           test -n "$SONAR_ORGANIZATION" || { echo 'Variable SONAR_ORGANIZATION manquante'; exit 1; }
           test -n "$SONAR_TOKEN" || { echo 'Secret SONAR_TOKEN manquant'; exit 1; }
       - name: Scan SonarQube Cloud
-        uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
+        uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65 # v8.4.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
