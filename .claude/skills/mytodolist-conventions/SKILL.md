@@ -62,7 +62,7 @@ Any new feature or bug fix that changes code under `src/`, `public/js/` or `serv
 
 - GitHub Actions are pinned to a full 40-character commit SHA followed by a `# vX.Y.Z` comment. Never use a mutable tag such as `@v4`. Resolve a SHA with `git ls-remote --tags https://github.com/<owner>/<repo>.git`.
 - Tool versions installed in workflows are pinned (for example `pip install semgrep==1.186.0`).
-- Dependabot (`.github/dependabot.yml`) handles action and npm updates. Do not bump versions by hand unless asked.
+- Dependabot (`.github/dependabot.yml`) handles action and npm updates. Do not bump versions by hand unless asked. Every `updates` entry keeps a `cooldown` block (`default-days: 7`): Semgrep blocks the CI without it.
 
 ## 6. Documentation
 

@@ -16,6 +16,10 @@ updates:
       day: monday
       time: "06:00"
       timezone: Europe/Paris
+    # Wait 7 days after a release before proposing it: compromised or broken
+    # releases are usually detected and pulled within that window.
+    cooldown:
+      default-days: 7
     # A single PR for all actions instead of one per action.
     groups:
       github-actions:
@@ -35,6 +39,10 @@ updates:
       day: monday
       time: "06:00"
       timezone: Europe/Paris
+    # Wait 7 days after a release before proposing it (see above). Security
+    # updates are not delayed by this setting.
+    cooldown:
+      default-days: 7
     # Minor and patch updates are grouped in one PR; major versions (possible
     # breaking changes) each get their own PR to be reviewed separately.
     groups:
