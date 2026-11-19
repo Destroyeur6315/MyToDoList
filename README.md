@@ -262,6 +262,5 @@ Chaque Pull Request déclenche les workflows GitHub Actions de [`.github/workflo
 
 | Workflow | Vérifications |
 |---|---|
-| **CI - Tests** | Tests de l'API et de la validation |
+| **CI - Tests & Quality** | Tests de l'API et de la validation avec couverture, puis Quality Gate SonarQube Cloud (couverture incluse) |
 | **Security** | Analyse du code (Semgrep), audit des dépendances (`npm audit`), scan dynamique (OWASP ZAP) |
-| **Quality** | Tests avec couverture, puis Quality Gate SonarQube Cloud (couverture incluse) |

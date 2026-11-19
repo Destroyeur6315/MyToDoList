@@ -1,13 +1,13 @@
-# Trois pipelines GitHub Actions : CI / Security / Quality
+# Deux pipelines GitHub Actions : CI (tests + qualité) / Security
 
 Copier le dossier `.github` à la racine de votre dépôt GitHub.
 
 ## CI — ci.yml
 
-- `npm ci`, puis `node --test tests/api.test.js tests/validation.test.js`.
-- Utilise les tests fournis, basés sur `node:test` (pas Jest).
-- `api.test.js` lance un Express éphémère et une SQLite temporaire ; le workflow CI n'a pas besoin d'un `npm start` séparé.
-- Le code doit se trouver dans `src/` et le dossier `tests/` doit contenir les deux fichiers.
+Un seul workflow, deux jobs :
+
+1. **`tests`** — `npm ci`, puis `npm run test:coverage` (`node:test`, pas Jest). `api.test.js` lance un Express éphémère et une SQLite temporaire : pas besoin d'un `npm start` séparé. Le rapport `coverage/lcov.info` est publié comme artefact (conservé 1 jour). Ce job tourne pour toutes les PR, y compris celles venant de forks.
+2. **`sonarqube`** (`needs: tests`) — récupère l'artefact de couverture et lance le scan SonarQube Cloud. Il ne démarre que si les tests passent, sans réinstaller Node ni relancer les tests.
 
 ## Sécurité — security.yml
 
@@ -24,22 +24,22 @@ Trois jobs indépendants :
 
 La durée du full scan peut être élevée ; `-m 3` limite le spider traditionnel, `-T 5` l'attente de démarrage/passif. `timeout-minutes: 45` limite le job entier.
 
-## Qualité — quality.yml
+## Qualité — job `sonarqube` de ci.yml
 
 SonarQube **Cloud**. Créer un projet sur https://sonarcloud.io puis renseigner dans GitHub :
 
 - **Settings > Secrets and variables > Actions > Variables** : `SONAR_PROJECT_KEY`, `SONAR_ORGANIZATION`.
 - **Settings > Secrets and variables > Actions > Secrets** : `SONAR_TOKEN`.
 
-Le workflow passe les propriétés directement à l'action : pas besoin de `sonar-project.properties`. Il analyse `src/`, déclare `tests/` comme tests et attend le Quality Gate.
+Le job passe les propriétés directement à l'action : pas besoin de `sonar-project.properties`. Il analyse `src/`, déclare `tests/` comme tests et attend le Quality Gate.
 
-**Couverture** : le workflow lance d'abord `npm run test:coverage`, qui génère `coverage/lcov.info` avec la couverture intégrée de `node:test`, puis transmet ce rapport via `sonar.javascript.lcov.reportPaths`.
+**Couverture** : le job `tests` génère `coverage/lcov.info` avec la couverture intégrée de `node:test` ; le job `sonarqube` le transmet via `sonar.javascript.lcov.reportPaths`.
 
 Les PR provenant de forks n'ont pas accès aux secrets : le job SonarQube est donc ignoré pour elles (condition `if` du job). Prévoir une politique dédiée si vous acceptez des contributions externes. Ne pas utiliser `pull_request_target` pour analyser du code non fiable avec des secrets.
 
 ## Déclenchement
 
-Les trois workflows s'exécutent séparément : push sur `main`/`master`, PR vers ces branches, ou lancement manuel. Aucun n'attend les autres. Pour protéger `main`, configurer les vérifications requises dans les règles de protection des branches GitHub.
+Les deux workflows s'exécutent séparément : push sur `main`/`master`, PR vers ces branches, ou lancement manuel. Ils ne s'attendent pas entre eux ; dans `ci.yml`, le job `sonarqube` attend le job `tests`. Pour protéger `main`, configurer les vérifications requises dans les règles de protection des branches GitHub.
 
 ## Pré-requis
 
