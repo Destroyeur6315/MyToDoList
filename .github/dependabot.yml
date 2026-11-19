@@ -1,0 +1,50 @@
+# Dependabot version updates
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Opens pull requests when a new version of a GitHub Action or npm package is
+# released. Actions are pinned by commit SHA in the workflows: Dependabot
+# updates both the SHA and the `# vX.Y.Z` comment next to it.
+
+version: 2
+
+updates:
+  # GitHub Actions used in .github/workflows/
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    # A single PR for all actions instead of one per action.
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: ":arrow_up: chore(ci)"
+    labels:
+      - dependencies
+      - ci
+
+  # npm packages (package.json / package-lock.json)
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    # Minor and patch updates are grouped in one PR; major versions (possible
+    # breaking changes) each get their own PR to be reviewed separately.
+    groups:
+      npm-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: ":arrow_up: chore(deps)"
+      prefix-development: ":arrow_up: chore(deps-dev)"
+    labels:
+      - dependencies
+    open-pull-requests-limit: 5
