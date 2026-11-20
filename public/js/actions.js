@@ -3,13 +3,20 @@
  * `[data-action]` element, plus keyboard shortcuts and search.
  */
 
+import { DEFAULT_TAB_NAME, TAB_NAME_MAX_LENGTH } from './constants.js';
 import {
-  deleteList, deleteTask, findList, findTask, listStats, setTaskStatus, state, tasksOf, toggleListMask
+  deleteList, deleteTab, deleteTask, findList, findTab, findTask, listsOfTab, listStats, setTaskStatus, state,
+  tasksOf, toggleListMask
 } from './state.js';
 import { persist } from './sync.js';
-import { byId, plural } from './utils.js';
-import { askConfirm, closeModals, openListModal, openTaskModal } from './ui/modals.js';
-import { render, renderLists, renderQuickWins, refreshTask } from './ui/render.js';
+import { cleanTabName, moveTab } from './tabs.js';
+import { byId, createId, plural } from './utils.js';
+import {
+  askConfirm, closeModals, isTabsModalOpen, openListModal, openTabModal, openTabsModal, openTaskModal, renderTabManager
+} from './ui/modals.js';
+import {
+  render, renderLists, renderQuickWins, renderTabs, refreshTask, revealActiveTab, updateTabStripFade
+} from './ui/render.js';
 import { toggleTheme } from './ui/theme.js';
 import { toast } from './ui/toast.js';
 
@@ -101,12 +108,88 @@ function toggleMask(id) {
 function confirmResetAll() {
   askConfirm({
     title: 'Tout effacer',
-    message: 'Listes, tâches et historique seront remis à zéro.',
+    message: 'Onglets, listes, tâches et historique seront remis à zéro.',
     confirmLabel: 'Tout effacer',
     onConfirm: () => {
+      // An account always keeps one tab.
+      const tab = { id: createId(), name: DEFAULT_TAB_NAME, createdAt: Date.now() };
+      state.tabs = [tab];
+      state.activeTabId = tab.id;
       state.lists = [];
       state.tasks = [];
       commit('Données effacées');
+    }
+  });
+}
+
+/* ───────── Tab actions ───────── */
+
+function showTab(id) {
+  if (!findTab(id)) return;
+  state.activeTabId = id;
+  state.view = 'board';
+  render();
+  revealActiveTab();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/** Moves a tab one step left (-1) or right (1), keeping keyboard focus on the same button. */
+function shiftTab(id, offset) {
+  state.tabs = moveTab(state.tabs, id, offset);
+  persist();
+  renderTabs();
+  renderTabManager();
+  const selector = `#tabsManager [data-action="move-tab"][data-id="${CSS.escape(id)}"]`;
+  const buttons = [...document.querySelectorAll(selector)];
+  // At either end the pressed button becomes disabled: focus the other one.
+  const target = buttons.find(b => Number(b.dataset.offset) === offset && !b.disabled) || buttons.find(b => !b.disabled);
+  target?.focus();
+}
+
+/** Inline rename from the tab manager (fires on Enter or when the field loses focus). */
+function renameTab(input) {
+  const tab = findTab(input.dataset.id);
+  if (!tab) return;
+  const name = cleanTabName(input.value, TAB_NAME_MAX_LENGTH);
+  if (!name) {
+    input.value = tab.name;
+    toast('Le nom de l’onglet ne peut pas être vide');
+    return;
+  }
+  input.value = name;
+  if (name === tab.name) return;
+  tab.name = name;
+  persist();
+  renderTabs();
+  toast('Onglet renommé');
+}
+
+/** Deletes a tab right away when it is empty, after confirmation otherwise. */
+function confirmDeleteTab(id) {
+  const tab = findTab(id);
+  if (!tab || state.tabs.length < 2) return;
+  const lists = listsOfTab(id);
+  const remove = () => {
+    deleteTab(id);
+    persist();
+    render();
+    revealActiveTab();
+    toast('Onglet supprimé');
+  };
+  if (!lists.length) {
+    remove();
+    if (isTabsModalOpen()) renderTabManager();
+    return;
+  }
+  const tasks = lists.reduce((sum, list) => sum + tasksOf(list.id).length, 0);
+  askConfirm({
+    title: 'Supprimer l’onglet',
+    message: `« ${tab.name} » sera supprimé avec ses ${plural(lists.length, 'liste')} et ${plural(tasks, 'tâche')}`
+      + ', historique compris. Cette action est définitive.',
+    confirmLabel: 'Supprimer',
+    onConfirm: () => {
+      remove();
+      openTabsModal();
     }
   });
 }
@@ -136,6 +219,12 @@ const CLICK_ACTIONS = {
   'reset-all': () => confirmResetAll(),
   'close-modal': () => closeModals(),
 
+  'tab': id => showTab(id),
+  'new-tab': () => openTabModal({ fromManager: isTabsModalOpen() }),
+  'manage-tabs': () => openTabsModal(),
+  'move-tab': (id, el) => shiftTab(id, Number(el.dataset.offset)),
+  'del-tab': id => confirmDeleteTab(id),
+
   'new-list': () => openListModal(),
   'edit-list': id => openListModal(findList(id)),
   'mask-list': id => toggleMask(id),
@@ -157,10 +246,18 @@ function onClick(event) {
   if (handler) handler(element.dataset.id, element);
 }
 
-/** The "archive" checkbox reacts to `change`, not `click`. */
+/** The "archive" checkbox and the tab name fields react to `change`, not `click`. */
 function onChange(event) {
-  const element = event.target.closest('[data-action="archive"]');
-  if (element) archiveList(element.dataset.id);
+  const element = event.target.closest('[data-action="archive"], [data-action="rename-tab"]');
+  if (element?.dataset.action === 'archive') archiveList(element.dataset.id);
+  if (element?.dataset.action === 'rename-tab') renameTab(element);
+}
+
+/** Double-clicking a header tab renames it. */
+function onDoubleClick(event) {
+  const element = event.target.closest('[data-action="tab"]');
+  const tab = element && findTab(element.dataset.id);
+  if (tab) openTabModal({ tab });
 }
 
 function onKeyDown(event) {
@@ -176,6 +273,9 @@ function onKeyDown(event) {
 export function initActions() {
   document.addEventListener('click', onClick);
   document.addEventListener('change', onChange);
+  document.addEventListener('dblclick', onDoubleClick);
+  byId('tabBar').addEventListener('scroll', updateTabStripFade, { passive: true });
+  window.addEventListener('resize', updateTabStripFade);
   document.addEventListener('keydown', onKeyDown);
 
   const search = byId('search');

@@ -7,9 +7,9 @@
  * are handled by a single delegated listener in actions.js.
  */
 
-import { criticalityOf, durationOf } from '../constants.js';
+import { criticalityOf, durationOf, TAB_NAME_MAX_LENGTH } from '../constants.js';
 import {
-  findList, isListMasked, isQuickWin, listStats, matchesFilters, sortTasks, tasksOf
+  findList, findTab, isListMasked, isQuickWin, listsOfTab, listStats, matchesFilters, sortTasks, state, tasksOf
 } from '../state.js';
 import { escapeHtml, formatDate, plural } from '../utils.js';
 import { ICONS, svgIcon } from './icons.js';
@@ -28,6 +28,59 @@ function iconButton({ action, id, label, icon, danger = false, pressed }) {
   const pressedAttr = pressed === undefined ? '' : ` aria-pressed="${pressed}"`;
   return `<button type="button" data-action="${action}" data-id="${escapeHtml(id)}" aria-label="${label}" title="${label}"${pressedAttr}`
     + ` class="grid h-7 w-7 place-items-center rounded-lg ${color} transition ${hover}">${svgIcon(icon, 14)}</button>`;
+}
+
+/* ───────── Tabs ───────── */
+
+/**
+ * Tab of the header. The selected tab gets a grey background that touches
+ * the header's bottom border.
+ * @param {import('../state.js').Tab} tab
+ * @param {boolean} selected
+ */
+export function tabButton(tab, selected) {
+  const tone = selected ? 'bg-surface2 text-ink' : 'text-muted hover:bg-surface2/60 hover:text-ink';
+  const name = escapeHtml(tab.name);
+  return `<button type="button" data-action="tab" data-id="${escapeHtml(tab.id)}" title="${name}"`
+    + ` aria-current="${selected ? 'page' : 'false'}"`
+    + ` class="h-9 max-w-[9.5rem] shrink-0 truncate rounded-t-lg px-3 text-[13px] font-medium transition sm:max-w-[14rem] ${tone}">`
+    + `${name}</button>`;
+}
+
+/** Square button of the tab manager (move / delete), disabled when the action is impossible. */
+function managerButton({ action, id, label, icon, offset, disabled, danger = false }) {
+  const hover = danger ? 'hover:bg-rose-500/10 hover:text-rose-600' : 'hover:bg-surface2 hover:text-ink';
+  const offsetAttr = offset === undefined ? '' : ` data-offset="${offset}"`;
+  return `<button type="button" data-action="${action}" data-id="${escapeHtml(id)}"${offsetAttr}`
+    + ` aria-label="${label}" title="${label}"${disabled ? ' disabled' : ''}`
+    + ` class="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted transition ${hover} disabled:pointer-events-none disabled:opacity-30">`
+    + `${svgIcon(icon, 16)}</button>`;
+}
+
+/**
+ * Row of the tab manager: editable name, list count, move and delete buttons.
+ * @param {import('../state.js').Tab} tab
+ * @param {number} index Position from the left (0-based).
+ */
+export function tabManagerRow(tab, index) {
+  const count = state.tabs.length;
+  const lists = listsOfTab(tab.id).length;
+  const id = escapeHtml(tab.id);
+  return '<li class="flex items-center gap-1 rounded-xl border border-line bg-canvas p-1 pl-2">'
+    + `<span class="w-5 shrink-0 text-center tabular text-[12px] font-medium text-muted">${index + 1}</span>`
+    + '<div class="min-w-0 flex-1">'
+    + `<input data-action="rename-tab" data-id="${id}" value="${escapeHtml(tab.name)}" maxlength="${TAB_NAME_MAX_LENGTH}"`
+    + ` aria-label="Nom de l’onglet ${index + 1}" autocomplete="off"`
+    + ' class="h-8 w-full rounded-lg border border-transparent bg-transparent px-2 text-[14px] font-medium transition hover:border-line focus:border-accent focus:bg-surface">'
+    + `<p class="px-2 text-[11.5px] text-muted">${plural(lists, 'liste')}</p>`
+    + '</div>'
+    + managerButton({ action: 'move-tab', id: tab.id, offset: -1, label: 'Déplacer vers la gauche', icon: ICONS.chevronUp, disabled: index === 0 })
+    + managerButton({ action: 'move-tab', id: tab.id, offset: 1, label: 'Déplacer vers la droite', icon: ICONS.chevronDown, disabled: index === count - 1 })
+    + managerButton({
+      action: 'del-tab', id: tab.id, icon: ICONS.trash, danger: true, disabled: count === 1,
+      label: count === 1 ? 'Impossible de supprimer le dernier onglet' : 'Supprimer l’onglet'
+    })
+    + '</li>';
 }
 
 /* ───────── Task pieces ───────── */
@@ -177,7 +230,7 @@ export function listCard(list, animate = true) {
       label: masked ? 'Afficher le texte de la liste' : 'Masquer le texte de la liste',
       icon: masked ? ICONS.eyeOff : ICONS.eye
     })
-    + iconButton({ action: 'edit-list', id: list.id, label: 'Renommer la liste', icon: ICONS.edit })
+    + iconButton({ action: 'edit-list', id: list.id, label: 'Modifier la liste', icon: ICONS.edit })
     + iconButton({ action: 'del-list', id: list.id, label: 'Supprimer la liste', icon: ICONS.trash, danger: true })
     + '</div>'
     + '<div class="mt-3 h-1 w-full overflow-hidden rounded-full bg-line">'
@@ -189,13 +242,19 @@ export function listCard(list, animate = true) {
 
 /* ───────── History ───────── */
 
+/** "Perso · " prefix naming the list's tab, only useful with several tabs. */
+function historyTabLabel(list) {
+  const tab = state.tabs.length > 1 && findTab(list.tabId);
+  return tab ? `<span class="font-medium text-ink/70">${escapeHtml(tab.name)}</span> · ` : '';
+}
+
 /** Card of an archived list. */
 export function historyCard(list) {
   const tasks = tasksOf(list.id);
   return '<article class="fade-in flex flex-col rounded-xl2 border border-line bg-surface2 p-4">'
     + '<div class="flex items-start gap-2"><div class="min-w-0 flex-1">'
     + `<h3 class="font-display text-[15px] font-semibold leading-snug${maskClass(list.id)}">${escapeHtml(list.name)}</h3>`
-    + `<p class="mt-0.5 text-[12px] text-muted">${plural(tasks.length, 'tâche')} · rangée le ${formatDate(list.archivedAt || Date.now())}</p>`
+    + `<p class="mt-0.5 text-[12px] text-muted">${historyTabLabel(list)}${plural(tasks.length, 'tâche')} · rangée le ${formatDate(list.archivedAt || Date.now())}</p>`
     + '</div></div>'
     + `<ul class="-mx-2 mt-2 flex-1 divide-y divide-line/60">${tasks.map(t => taskRow(t, true)).join('')}</ul>`
     + '<div class="mt-3 flex gap-2">'

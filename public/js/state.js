@@ -6,15 +6,22 @@
 import {
   durationOf, QUICK_WIN_THRESHOLD, MAX_QUICK_WINS, STORAGE_KEYS
 } from './constants.js';
+import { normalizeTabs, tabAfterRemoval } from './tabs.js';
 import { readStorageJson, writeStorage } from './utils.js';
 
 /**
- * @typedef {{ id: string, name: string, archived: boolean, archivedAt: number|null, createdAt: number }} List
+ * @typedef {import('./tabs.js').Tab} Tab
+ * @typedef {{ id: string, tabId: string, name: string, archived: boolean, archivedAt: number|null,
+ *   createdAt: number }} List
  * @typedef {{ id: string, listId: string, name: string, description: string, duration: string,
  *   criticality: number, status: 'todo'|'doing'|'done', createdAt: number, completedAt: number|null }} Task
  */
 
 export const state = {
+  /** Display order, leftmost first. @type {Tab[]} */
+  tabs: [],
+  /** Tab whose lists the board shows. @type {string | null} */
+  activeTabId: null,
   /** @type {List[]} */
   lists: [],
   /** @type {Task[]} */
@@ -27,8 +34,13 @@ export const state = {
   updatedAt: 0
 };
 
-/** Replaces the board data (after loading from the server, logout, import…). */
-export function replaceBoard({ lists, tasks, updatedAt } = {}) {
+/**
+ * Replaces the board data (after loading from the server, logout, import…)
+ * and shows the leftmost tab.
+ */
+export function replaceBoard({ tabs, lists, tasks, updatedAt } = {}) {
+  state.tabs = normalizeTabs(tabs);
+  state.activeTabId = state.tabs[0]?.id ?? null;
   state.lists = Array.isArray(lists) ? lists : [];
   state.tasks = Array.isArray(tasks) ? tasks : [];
   state.updatedAt = updatedAt || 0;
@@ -42,21 +54,37 @@ export function resetViewFilters() {
 
 /* ───────── Lookups ───────── */
 
+export const findTab = id => state.tabs.find(t => t.id === id);
 export const findList = id => state.lists.find(l => l.id === id);
 export const findTask = id => state.tasks.find(t => t.id === id);
 export const tasksOf = listId => state.tasks.filter(t => t.listId === listId);
-export const activeLists = () => state.lists.filter(l => !l.archived);
+/** Every list of a tab, archived ones included. */
+export const listsOfTab = tabId => state.lists.filter(l => l.tabId === tabId);
+/** Non-archived lists of the active tab: the lists shown on the board. */
+export const activeLists = () => state.lists.filter(l => !l.archived && l.tabId === state.activeTabId);
 export const archivedLists = () => state.lists
   .filter(l => l.archived)
   .sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
 
-/** Tasks belonging to non-archived lists. */
+/** Tasks belonging to the non-archived lists of the active tab. */
 export function activeTasks() {
   const ids = new Set(activeLists().map(l => l.id));
   return state.tasks.filter(t => ids.has(t.listId));
 }
 
 /* ───────── Mutations ───────── */
+
+/**
+ * Removes a tab with all of its lists (archived ones included) and their
+ * tasks. If it was the active tab, a neighbouring tab becomes active.
+ */
+export function deleteTab(tabId) {
+  const listIds = new Set(listsOfTab(tabId).map(l => l.id));
+  state.activeTabId = tabAfterRemoval(state.tabs, tabId, state.activeTabId);
+  state.tabs = state.tabs.filter(t => t.id !== tabId);
+  state.lists = state.lists.filter(l => !listIds.has(l.id));
+  state.tasks = state.tasks.filter(t => !listIds.has(t.listId));
+}
 
 /** Removes a list and all of its tasks. */
 export function deleteList(listId) {

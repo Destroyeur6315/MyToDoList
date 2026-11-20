@@ -1,18 +1,21 @@
 /**
- * Dialogs: task form, list form and confirmation.
+ * Dialogs: task form, list form, tab form, tab manager and confirmation.
  */
 
 import {
-  CRITICALITIES, DEFAULT_CRITICALITY, DEFAULT_DURATION, DURATIONS, QUICK_WIN_THRESHOLD, STATUSES
+  CRITICALITIES, DEFAULT_CRITICALITY, DEFAULT_DURATION, DURATIONS, MAX_TABS, QUICK_WIN_THRESHOLD, STATUSES,
+  TAB_NAME_MAX_LENGTH
 } from '../constants.js';
-import { activeLists, quickWinScore, setTaskStatus, state } from '../state.js';
+import { activeLists, findTab, quickWinScore, setTaskStatus, state } from '../state.js';
 import { persist } from '../sync.js';
+import { cleanTabName } from '../tabs.js';
 import { byId, createId, escapeHtml } from '../utils.js';
+import { tabManagerRow } from './components.js';
 import { ICONS, svgIcon } from './icons.js';
-import { render } from './render.js';
+import { render, revealActiveTab } from './render.js';
 import { toast } from './toast.js';
 
-const MODAL_IDS = ['taskModal', 'listModal', 'confirmModal'];
+const MODAL_IDS = ['taskModal', 'listModal', 'tabModal', 'tabsModal', 'confirmModal'];
 /** Lets the opening transition start before moving focus. */
 const FOCUS_DELAY_MS = 60;
 
@@ -22,6 +25,10 @@ let previousFocus = null;
 let editingTask = null;
 /** @type {import('../state.js').List | null} */
 let editingList = null;
+/** @type {import('../state.js').Tab | null} */
+let editingTab = null;
+/** The tab form was opened from the tab manager, which reopens once it is done. */
+let tabFormFromManager = false;
 /** @type {(() => void) | null} */
 let pendingConfirm = null;
 
@@ -170,12 +177,19 @@ function submitTaskForm(event) {
 
 /* ───────── List form ───────── */
 
-/** Opens the list form, empty (creation) or pre-filled (rename). */
+/**
+ * Opens the list form, empty (creation) or pre-filled (edition). With
+ * several tabs, the form also lets the user pick or change the list's tab.
+ */
 export function openListModal(list = null) {
   editingList = list;
-  byId('listModalTitle').textContent = list ? 'Renommer la liste' : 'Nouvelle liste';
+  byId('listModalTitle').textContent = list ? 'Modifier la liste' : 'Nouvelle liste';
   byId('lSubmit').textContent = list ? 'Enregistrer' : 'Créer la liste';
   byId('lName').value = list?.name ?? '';
+  byId('lTab').innerHTML = state.tabs
+    .map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join('');
+  byId('lTab').value = list?.tabId ?? state.activeTabId ?? '';
+  byId('lTabField').classList.toggle('hidden', state.tabs.length < 2);
   openModal('listModal', 'lName');
 }
 
@@ -186,17 +200,84 @@ function submitListForm(event) {
     byId('lName').focus();
     return;
   }
+  const tab = findTab(byId('lTab').value) || findTab(state.activeTabId);
   if (editingList) {
+    const moved = editingList.tabId !== tab.id;
     editingList.name = name;
-    toast('Liste renommée');
+    editingList.tabId = tab.id;
+    toast(moved ? `Liste déplacée dans « ${tab.name} »` : 'Liste enregistrée');
   } else {
-    state.lists.unshift({ id: createId(), name, archived: false, archivedAt: null, createdAt: Date.now() });
+    state.lists.unshift({ id: createId(), tabId: tab.id, name, archived: false, archivedAt: null, createdAt: Date.now() });
+    // Show the tab that received the new list.
+    state.activeTabId = tab.id;
     toast('Liste créée');
   }
   persist();
   closeModals();
   render();
+  revealActiveTab();
 }
+
+/* ───────── Tab form ───────── */
+
+/**
+ * Opens the tab form, empty (creation) or pre-filled (rename).
+ * @param {{ tab?: import('../state.js').Tab | null, fromManager?: boolean }} [options]
+ */
+export function openTabModal({ tab = null, fromManager = false } = {}) {
+  if (!tab && state.tabs.length >= MAX_TABS) {
+    toast(`Limite de ${MAX_TABS} onglets atteinte`);
+    return;
+  }
+  closeModals();
+  editingTab = tab;
+  tabFormFromManager = fromManager;
+  byId('tabModalTitle').textContent = tab ? 'Renommer l’onglet' : 'Nouvel onglet';
+  byId('tabSubmit').textContent = tab ? 'Enregistrer' : 'Créer l’onglet';
+  byId('tabName').value = tab?.name ?? '';
+  openModal('tabModal', 'tabName');
+}
+
+function submitTabForm(event) {
+  event.preventDefault();
+  const name = cleanTabName(byId('tabName').value, TAB_NAME_MAX_LENGTH);
+  if (!name) {
+    byId('tabName').focus();
+    return;
+  }
+  if (editingTab) {
+    editingTab.name = name;
+    toast('Onglet renommé');
+  } else {
+    const tab = { id: createId(), name, createdAt: Date.now() };
+    state.tabs.push(tab);
+    state.activeTabId = tab.id;
+    state.view = 'board';
+    toast('Onglet créé');
+  }
+  const reopenManager = tabFormFromManager;
+  persist();
+  closeModals();
+  render();
+  revealActiveTab();
+  if (reopenManager) openTabsModal();
+}
+
+/* ───────── Tab manager ───────── */
+
+/** Re-renders the rows of the tab manager (after a rename, move or delete). */
+export function renderTabManager() {
+  byId('tabsManager').innerHTML = state.tabs.map((tab, index) => tabManagerRow(tab, index)).join('');
+}
+
+export function openTabsModal() {
+  closeModals();
+  renderTabManager();
+  openModal('tabsModal');
+}
+
+/** Whether the tab manager is currently open. */
+export const isTabsModalOpen = () => !byId('tabsModal').classList.contains('modal-hidden');
 
 /* ───────── Wiring ───────── */
 
@@ -204,6 +285,7 @@ function submitListForm(event) {
 export function initModals() {
   byId('taskForm').addEventListener('submit', submitTaskForm);
   byId('listForm').addEventListener('submit', submitListForm);
+  byId('tabForm').addEventListener('submit', submitTabForm);
   byId('tDur').addEventListener('change', renderQuickWinHint);
 
   byId('cOk').addEventListener('click', () => {

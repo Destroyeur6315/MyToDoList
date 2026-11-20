@@ -12,7 +12,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "test": "node --test",
-    "test:coverage": "node -e \"require('node:fs').mkdirSync('coverage', { recursive: true })\" && node --test --experimental-test-coverage --test-coverage-include=src/** --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info",
+    "test:coverage": "node -e \"require('node:fs').mkdirSync('coverage', { recursive: true })\" && node --test --experimental-test-coverage --test-coverage-include=src/** --test-coverage-include=public/js/** --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info",
     "build:fonts": "node scripts/copy-fonts.js",
     "build": "npm run build:fonts && npm run build:css"
   },
@@ -25,6 +25,7 @@
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/sora": "^5.3.0",
     "@tailwindcss/cli": "^4.3.5",
+    "jsdom": "^30.1.3",
     "tailwindcss": "^4.3.5"
   }
 }

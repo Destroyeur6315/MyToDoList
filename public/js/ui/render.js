@@ -8,7 +8,7 @@ import {
 } from '../state.js';
 import { byId, plural } from '../utils.js';
 import { ICONS, svgIcon } from './icons.js';
-import { historyCard, listCard, quickWinCard } from './components.js';
+import { historyCard, listCard, quickWinCard, tabButton } from './components.js';
 
 /** Progress ring geometry (SVG circle). */
 const RING_RADIUS = 15;
@@ -50,7 +50,7 @@ export function renderQuickWins() {
   const container = byId('quickWins');
   const wins = quickWins();
   if (!wins.length) {
-    container.innerHTML = state.tasks.length
+    container.innerHTML = activeTasks().length
       ? '<div class="rounded-xl2 border border-dashed border-line px-4 py-5 text-[13px] text-muted">'
         + 'Aucun quick win disponible. Les tâches courtes et critiques apparaissent ici dès que vous en créez une.</div>'
       : '';
@@ -105,18 +105,46 @@ export function renderHistory() {
   byId('history').innerHTML = lists.map(historyCard).join('');
 }
 
+/** Header tabs: one per tab of the account, then "Historique" on the right. */
+export function renderTabs() {
+  const onBoard = state.view === 'board';
+  byId('tabBar').innerHTML = state.tabs
+    .map(tab => tabButton(tab, onBoard && tab.id === state.activeTabId))
+    .join('');
+
+  updateTabStripFade();
+
+  const history = byId('historyTab');
+  history.setAttribute('aria-current', onBoard ? 'false' : 'page');
+  history.classList.toggle('bg-surface2', !onBoard);
+  history.classList.toggle('text-ink', !onBoard);
+  for (const name of ['text-muted', 'hover:text-ink', 'hover:bg-surface2/60']) history.classList.toggle(name, onBoard);
+}
+
+/** Fades the edges of the tab strip that hide more tabs (see `.tab-strip` in styles/main.css). */
+export function updateTabStripFade() {
+  const bar = byId('tabBar');
+  const maxScroll = bar.scrollWidth - bar.clientWidth;
+  bar.toggleAttribute('data-fade-left', bar.scrollLeft > 1);
+  bar.toggleAttribute('data-fade-right', bar.scrollLeft < maxScroll - 1);
+}
+
+/** Scrolls the tab strip so that the selected tab is visible (narrow screens). */
+export function revealActiveTab() {
+  const tab = byId('tabBar').querySelector('[aria-current="page"]');
+  if (!tab) return;
+  const bar = byId('tabBar');
+  const left = tab.offsetLeft - bar.offsetLeft;
+  if (left < bar.scrollLeft || left + tab.offsetWidth > bar.scrollLeft + bar.clientWidth) {
+    bar.scrollTo({ left: left - (bar.clientWidth - tab.offsetWidth) / 2, behavior: 'smooth' });
+  }
+}
+
 function renderNavigation() {
   const onBoard = state.view === 'board';
   byId('viewBoard').classList.toggle('hidden', !onBoard);
   byId('viewHistory').classList.toggle('hidden', onBoard);
-  document.querySelectorAll('.nav-tab').forEach(tab => {
-    const selected = tab.dataset.view === state.view;
-    tab.setAttribute('aria-current', selected ? 'page' : 'false');
-    tab.classList.toggle('bg-surface2', selected);
-    tab.classList.toggle('text-ink', selected);
-    tab.classList.toggle('text-muted', !selected);
-    tab.classList.toggle('hover:text-ink', !selected);
-  });
+  renderTabs();
 }
 
 /** Full re-render of the current view. */

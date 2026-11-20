@@ -43,6 +43,6 @@ export const api = {
   register: credentials => apiRequest('/api/auth/register', { method: 'POST', body: credentials }),
   logout: () => apiRequest('/api/auth/logout', { method: 'POST' }),
   getState: () => apiRequest('/api/state'),
-  /** @param {{ lists: object[], tasks: object[], revision: number }} snapshot */
+  /** @param {{ tabs: object[], lists: object[], tasks: object[], revision: number }} snapshot */
   saveState: snapshot => apiRequest('/api/state', { method: 'PUT', body: snapshot })
 };
