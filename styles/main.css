@@ -154,6 +154,17 @@
 /* Text of a list hidden with the eye button: blurred and not selectable. */
 .masked-text { filter: blur(6px); user-select: none; pointer-events: none; }
 
+/* ---------- Header tab strip ----------
+   When the tabs overflow (narrow screens), the edges that hide more tabs
+   fade out. `data-fade-left/right` are set by updateTabStripFade(). */
+.tab-strip {
+  --fade-left: 0px;
+  --fade-right: 0px;
+  mask-image: linear-gradient(to right, transparent, #000 var(--fade-left), #000 calc(100% - var(--fade-right)), transparent);
+}
+.tab-strip[data-fade-left] { --fade-left: 28px; }
+.tab-strip[data-fade-right] { --fade-right: 28px; }
+
 /* ---------- Animations & modals ---------- */
 .fade-in { animation: fade .22s ease both; }
 @keyframes fade {
@@ -217,6 +228,8 @@ body.auth-locked > header,
 body.auth-locked > main { display: none !important; }
 body.auth-locked #taskModal,
 body.auth-locked #listModal,
+body.auth-locked #tabModal,
+body.auth-locked #tabsModal,
 body.auth-locked #confirmModal { display: none !important; }
 
 .auth-screen {

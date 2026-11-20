@@ -80,7 +80,7 @@ async function runSaveLoop() {
   while (dirty && active) {
     dirty = false;
     try {
-      const saved = await api.saveState({ lists: state.lists, tasks: state.tasks, revision });
+      const saved = await api.saveState({ tabs: state.tabs, lists: state.lists, tasks: state.tasks, revision });
       revision = saved.revision;
     } catch (err) {
       dirty = true; // Keep the changes for a later retry.

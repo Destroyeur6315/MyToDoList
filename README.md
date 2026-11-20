@@ -39,7 +39,8 @@ Listes, quick wins, suivi « en cours » et historique, avec une API REST et une
 - **Quick wins** : repérage des tâches rapides et importantes.
 - **Statuts** *À faire*, *En cours* et *Terminée*, avec un bouton « Démarrer » sur chaque tâche.
 - **Criticité** (basse → critique) et **durée estimée** (quelques minutes → un mois) pour chaque tâche.
-- **Listes multiples** : progression par liste, archivage, masquage par appareil.
+- **Onglets** : regroupez vos listes par thème (« Mes listes boulot », « Mes listes perso »…). Créez, renommez (double-clic sur l'onglet), réordonnez et supprimez vos onglets ; celui le plus à gauche s'affiche à l'ouverture.
+- **Listes multiples** : progression par liste, archivage, masquage par appareil, déplacement d'un onglet à l'autre.
 - **Recherche** et filtres par statut.
 - **Historique** des tâches terminées.
 - **Thèmes clair et sombre**, mémorisés par appareil (préférence du système à la première visite).
@@ -127,12 +128,16 @@ Toutes les requêtes qui modifient des données doivent envoyer l'en-tête `X-My
 | `POST` | `/api/auth/login` | Se connecter `{ username, password }` |
 | `GET` | `/api/auth/me` | Session en cours |
 | `POST` | `/api/auth/logout` | Se déconnecter |
-| `GET` | `/api/state` | État complet `{ lists, tasks, revision, updatedAt }` |
-| `PUT` | `/api/state` | Sauvegarde atomique `{ lists, tasks, revision }` |
-| `GET` / `POST` | `/api/lists` | Lister / créer une liste |
+| `GET` | `/api/state` | État complet `{ tabs, lists, tasks, revision, updatedAt }` |
+| `PUT` | `/api/state` | Sauvegarde atomique `{ tabs, lists, tasks, revision }` (ordre de `tabs` = ordre d'affichage) |
+| `GET` / `POST` | `/api/tabs` | Lister / créer un onglet `{ name }` (ajouté à droite) |
+| `PATCH` / `DELETE` | `/api/tabs/:id` | Renommer / déplacer `{ name?, position? }` / supprimer un onglet avec ses listes |
+| `GET` / `POST` | `/api/lists` | Lister / créer une liste `{ name, tabId? }` (onglet le plus à gauche par défaut) |
 | `PATCH` / `DELETE` | `/api/lists/:id` | Modifier / supprimer une liste |
 | `GET` / `POST` | `/api/tasks` | Lister / créer une tâche |
 | `PATCH` / `DELETE` | `/api/tasks/:id` | Modifier / supprimer une tâche |
+
+Chaque compte a au moins un onglet : le dernier ne peut pas être supprimé (**400**). Supprimer un onglet supprime aussi ses listes, archivées comprises, et leurs tâches.
 
 L'interface se synchronise avec `GET` / `PUT /api/state`. Les routes par ressource servent à une application mobile ou à une intégration tierce. Le champ `revision` empêche d'écraser sans le savoir une modification faite ailleurs : une requête obsolète reçoit **409 Conflict**.
 
@@ -161,7 +166,7 @@ mytodolist/
 │   ├── domain/validation.js  # Validation et normalisation des entrées
 │   ├── security/crypto.js    # Hachage, jetons, identifiants
 │   ├── http/                 # Sessions, limites de tentatives, CSRF, erreurs
-│   └── routes/               # /api/auth, listes et tâches
+│   └── routes/               # /api/auth, onglets, listes et tâches
 ├── public/                   # Fichiers servis au navigateur
 │   ├── index.html
 │   ├── css/main.css          # Généré par Tailwind, ne pas modifier

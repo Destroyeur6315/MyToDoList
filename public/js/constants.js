@@ -41,6 +41,11 @@ export const FILTERS = Object.freeze([
 export const DEFAULT_DURATION = 'h1';
 export const DEFAULT_CRITICALITY = 3;
 
+/** Tabs: name of the first tab, and limits (same as src/domain/validation.js). */
+export const DEFAULT_TAB_NAME = 'Mes listes';
+export const MAX_TABS = 20;
+export const TAB_NAME_MAX_LENGTH = 40;
+
 /** Minimum score for a task to be shown as a quick win. */
 export const QUICK_WIN_THRESHOLD = 30;
 export const MAX_QUICK_WINS = 4;

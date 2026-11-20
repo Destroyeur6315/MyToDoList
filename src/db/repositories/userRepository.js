@@ -5,6 +5,7 @@
  */
 
 const { inTransaction } = require('../database');
+const { DEFAULT_TAB_NAME } = require('../../domain/validation');
 
 /** @param {import('node:sqlite').DatabaseSync} db */
 function createUserRepository(db) {
@@ -13,6 +14,8 @@ function createUserRepository(db) {
     findByUsername: db.prepare('SELECT id, username, password_hash AS passwordHash FROM users WHERE username = ?'),
     insertUser: db.prepare('INSERT INTO users (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)'),
     insertMetadata: db.prepare('INSERT INTO metadata (user_id) VALUES (?)'),
+    insertDefaultTab: db.prepare(`INSERT INTO tabs (user_id, id, name, position, created_at)
+      VALUES (?, lower(hex(randomblob(16))), ?, 0, ?)`),
     updatePasswordHash: db.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
   };
 
@@ -28,13 +31,14 @@ function createUserRepository(db) {
     },
 
     /**
-     * Creates the account and its revision row atomically.
+     * Creates the account, its revision row and its first tab atomically.
      * Throws a `SQLITE_CONSTRAINT*` error if the username is already taken.
      */
     create({ id, username, passwordHash, createdAt }) {
       inTransaction(db, () => {
         statements.insertUser.run(id, username, passwordHash, createdAt);
         statements.insertMetadata.run(id);
+        statements.insertDefaultTab.run(id, DEFAULT_TAB_NAME, createdAt);
       });
     },
 

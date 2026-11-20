@@ -7,6 +7,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
+const { DEFAULT_TAB_NAME } = require('../domain/validation');
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS users (
@@ -23,6 +24,17 @@ const SCHEMA = `
     last_seen_at INTEGER NOT NULL DEFAULT 0
   );
   CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
+
+  -- Tabs group the lists of a user ("Perso", "Boulot"…). The position is the
+  -- display order, from left (0) to right.
+  CREATE TABLE IF NOT EXISTS tabs (
+    id         TEXT NOT NULL,
+    user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    position   INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY(user_id, id)
+  );
 
   CREATE TABLE IF NOT EXISTS lists (
     id          TEXT NOT NULL,
@@ -59,17 +71,45 @@ const SCHEMA = `
   );
 `;
 
+/** Column names of `table` (parameterized through the pragma table-valued function). */
+const columnsOf = (db, table) => db.prepare('SELECT name FROM pragma_table_info(?)').all(table).map(column => column.name);
+
+/**
+ * Creates the default tab of every user who has none, and moves lists that
+ * belong to no tab into the user's first tab. Ids use the same 32-hex-char
+ * format as `generateId()`.
+ * @param {DatabaseSync} db
+ */
+function ensureDefaultTabs(db) {
+  db.prepare(`INSERT INTO tabs (user_id, id, name, position, created_at)
+    SELECT u.id, lower(hex(randomblob(16))), ?, 0, ?
+    FROM users u WHERE NOT EXISTS (SELECT 1 FROM tabs t WHERE t.user_id = u.id)`)
+    .run(DEFAULT_TAB_NAME, Date.now());
+  db.exec(`UPDATE lists SET tab_id = (
+      SELECT t.id FROM tabs t WHERE t.user_id = lists.user_id ORDER BY t.position, t.created_at LIMIT 1)
+    WHERE tab_id = ''`);
+}
+
 /**
  * Upgrades databases created by older versions. Each step is idempotent.
  * @param {DatabaseSync} db
  */
 function migrate(db) {
-  const sessionColumns = db.prepare('PRAGMA table_info(sessions)').all().map(column => column.name);
-  if (!sessionColumns.includes('last_seen_at')) {
+  if (!columnsOf(db, 'sessions').includes('last_seen_at')) {
     // Existing sessions get last_seen_at = 0, i.e. they are idle-expired:
     // their owners simply log in again under the new session rules.
     db.exec('ALTER TABLE sessions ADD COLUMN last_seen_at INTEGER NOT NULL DEFAULT 0');
   }
+
+  // Lists belong to a tab. The column is added here (not in SCHEMA) so new and
+  // upgraded databases share one definition. SQLite cannot add a composite
+  // foreign key to an existing table: the repository deletes a tab's lists
+  // itself, and snapshot validation checks every list's tab.
+  if (!columnsOf(db, 'lists').includes('tab_id')) {
+    db.exec("ALTER TABLE lists ADD COLUMN tab_id TEXT NOT NULL DEFAULT ''");
+  }
+  db.exec('CREATE INDEX IF NOT EXISTS idx_lists_tab ON lists(user_id, tab_id)');
+  inTransaction(db, () => ensureDefaultTabs(db));
 }
 
 /**
