@@ -1,4 +1,4 @@
-name: CI - Tests
+name: CI - Tests & Quality
 
 on:
   push:
@@ -32,7 +32,63 @@ jobs:
       - name: Installer les dependances
         run: npm ci
 
-      # Les tests utilisent node:test, sans Jest et sans serveur externe.
-      # api.test.js lance un serveur Express et une SQLite temporaires.
-      - name: Tests API et validation
-        run: npm test
+      # Tests use node:test, without Jest or an external server.
+      # api.test.js starts a temporary Express server and SQLite database.
+      # The LCOV report (coverage/lcov.info) is handed over to the sonarqube job.
+      - name: Tests avec couverture
+        run: npm run test:coverage
+
+      - name: Publier le rapport de couverture
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage
+          path: coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 1
+
+  sonarqube:
+    name: SonarQube Cloud - Quality Gate
+    needs: tests
+    # Pull requests from forks have no access to SONAR_TOKEN: skip the scan,
+    # the tests job above still runs for them.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout avec historique Git
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Recuperer le rapport de couverture
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: coverage
+          path: coverage
+
+      - name: Verifier la configuration SonarQube
+        env:
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          test -n "$SONAR_PROJECT_KEY" || { echo 'Variable SONAR_PROJECT_KEY manquante'; exit 1; }
+          test -n "$SONAR_ORGANIZATION" || { echo 'Variable SONAR_ORGANIZATION manquante'; exit 1; }
+          test -n "$SONAR_TOKEN" || { echo 'Secret SONAR_TOKEN manquant'; exit 1; }
+
+      - name: Scan SonarQube Cloud
+        uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65 # v8.4.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          args: >
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+            -Dsonar.sources=src
+            -Dsonar.tests=tests
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.sourceEncoding=UTF-8
+            -Dsonar.qualitygate.wait=true
