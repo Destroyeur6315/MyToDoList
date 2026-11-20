@@ -55,7 +55,7 @@ Listes, quick wins, suivi « en cours » et historique, avec une API REST et une
 | Base de données | SQLite via le module natif [`node:sqlite`](https://nodejs.org/api/sqlite.html), sans module natif à compiler |
 | Interface | HTML, JavaScript (modules ES, sans framework), [Tailwind CSS v4](https://tailwindcss.com/) |
 | Polices | [Inter](https://rsms.me/inter/) et [Sora](https://fonts.google.com/specimen/Sora), auto-hébergées via [Fontsource](https://fontsource.org/) |
-| Tests | Test runner natif de Node.js (`node --test`) |
+| Tests | Test runner natif de Node.js (`node --test`), [jsdom](https://github.com/jsdom/jsdom) pour les tests d'interface |
 
 ## 🚀 Quickstart
 
@@ -91,7 +91,7 @@ npm test           # tests d'intégration et unitaires
 | `npm start` | Démarre le serveur |
 | `npm run dev` | Démarre le serveur en mode rechargement automatique |
 | `npm test` | Lance les tests |
-| `npm run test:coverage` | Lance les tests et génère le rapport de couverture `coverage/lcov.info` (lu par SonarQube Cloud) |
+| `npm run test:coverage` | Lance les tests et génère le rapport de couverture de `src/` et `public/js/` dans `coverage/lcov.info` (lu par SonarQube Cloud) |
 | `npm run build` | Copie les polices puis génère le CSS minifié |
 | `npm run build:css` | Génère uniquement `public/css/main.css` à partir de `styles/main.css` |
 | `npm run watch:css` | Régénère le CSS à chaque modification |
