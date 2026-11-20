@@ -25,13 +25,15 @@ Never mix languages inside code. If you touch a line that has a French comment o
 
 Any new feature or bug fix that changes code under `src/`, `public/js/` or `server.js` ships with tests in the same change. Pure documentation, styling or CI changes do not need tests.
 
-- **Runner**: Node's built-in `node:test` with `node:assert/strict`. No Jest, Mocha or other test framework.
+- **Runner**: Node's built-in `node:test` with `node:assert/strict`. No Jest, Mocha or other test framework. The only DOM library is `jsdom` (dev dependency), used for UI tests; do not add another one (no happy-dom, Testing Library or Playwright in `npm test`).
 - **Location**: `tests/<area>.test.js`. `npm test` (`node --test`) runs every `*.test.js` file automatically. Never list test files by name in scripts or CI.
 - **Minimum coverage per change**:
   - New or changed validation or domain function → unit tests covering a valid input, each rejection branch and edge values (see `tests/validation.test.js`).
   - New or changed API route → integration test in `tests/api.test.js` style: temporary SQLite database, real HTTP calls, success case, 4xx cases (bad input, missing auth, other user's data).
   - Bug fix → a regression test that fails without the fix.
-  - Front-end logic → extract it as a pure function (no DOM access) so it can be unit tested with `node --test`.
+  - Front-end logic → extract it as a pure function (no DOM access) in a module without DOM imports (see `public/js/tabs.js`), and unit test it by importing the ES module from a CommonJS test (`await import('../public/js/<module>.js')`, see `tests/tabs.test.js`).
+  - Front-end interactions (clicks, dialogs, rendering, what gets saved) → UI test in `tests/ui.test.js` style: the real `public/index.html` in jsdom, the real modules imported from `public/js/main.js`, and a real API server on a temporary SQLite database. Drive the page like a user (`.click()`, `change` events), then assert on the DOM **and** on `GET /api/state`. Reuse that file's harness: browser globals, tracked timers cleared in `after()` so the process exits, `settle()` to wait for pending saves, and the `afterEach` check that the page threw no error. Prefer pure functions for logic; use UI tests for the wiring, not instead of unit tests.
+- **Coverage**: `npm run test:coverage` measures `src/` and `public/js/` and writes `coverage/lcov.info`. SonarQube Cloud reads that report and fails the quality gate below **80 % coverage on new code**: check the coverage of the files you changed before finishing.
 - **Style**: CommonJS, `'use strict'`, a short JSDoc header describing the file, test names that state the expected behaviour (`'normalizeTask rejects out-of-range values'`).
 - **Before finishing**: run `npm test` and report the pass/fail count. Never claim tests pass without running them.
 
