@@ -267,7 +267,7 @@ function submitTabForm(event) {
 
 /** Re-renders the rows of the tab manager (after a rename, move or delete). */
 export function renderTabManager() {
-  byId('tabsManager').innerHTML = state.tabs.map(tabManagerRow).join('');
+  byId('tabsManager').innerHTML = state.tabs.map((tab, index) => tabManagerRow(tab, index)).join('');
 }
 
 export function openTabsModal() {
