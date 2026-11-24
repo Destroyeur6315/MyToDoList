@@ -560,6 +560,55 @@ test('archived lists scroll the same way in the history', () => {
   $$('#tabBar [data-action="tab"]')[0].click();
 });
 
+test('the task description field grows with its text, up to a maximum height', () => {
+  const field = $('#tDesc');
+  const BORDERS = 2;
+  const MAX_HEIGHT = 256;
+  // Fake layout: 20px per line plus padding, never less than the 2 rows.
+  const contentHeight = () => Math.max(64, field.value.split('\n').length * 20 + 24);
+  const clientHeight = () => Math.min(parseFloat(field.style.height) || 66, MAX_HEIGHT) - BORDERS;
+  Object.defineProperty(field, 'scrollHeight', { configurable: true, get: contentHeight });
+  Object.defineProperty(field, 'clientHeight', { configurable: true, get: clientHeight });
+  Object.defineProperty(field, 'offsetHeight', { configurable: true, get: () => clientHeight() + BORDERS });
+  const type = value => {
+    field.value = value;
+    field.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  };
+
+  try {
+    $('#lists [data-action="new-task"]').click();
+    assert.ok(isOpen('taskModal'));
+    assert.equal(field.style.height, '66px', 'an empty field keeps its two rows');
+
+    // Pressing Enter adds lines: the field grows, without a scrollbar.
+    type('Contexte\nÉtape 1\nÉtape 2\nÉtape 3\nÉtape 4');
+    assert.equal(field.style.height, '126px');
+    assert.equal(field.style.overflowY, 'hidden');
+
+    // Past the maximum height, the field stops growing and scrolls.
+    type(Array.from({ length: 20 }, (_, i) => `Ligne ${i + 1}`).join('\n'));
+    assert.equal(field.style.height, '426px', 'the CSS max-height clamps it on screen');
+    assert.equal(field.style.overflowY, 'auto');
+
+    // Removing text shrinks it back.
+    type('');
+    assert.equal(field.style.height, '66px');
+    assert.equal(field.style.overflowY, 'hidden');
+    dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }));
+
+    // Editing a task with a long description opens the field at the right size.
+    const task = state.state.tasks.find(t => t.description);
+    task.description = 'Ligne 1\nLigne 2\nLigne 3\nLigne 4';
+    $(`[data-action="edit-task"][data-id="${task.id}"]`).click();
+    assert.equal(field.value, task.description);
+    assert.equal(field.style.height, '106px');
+    dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }));
+    assert.equal(isOpen('taskModal'), false);
+  } finally {
+    for (const key of ['scrollHeight', 'clientHeight', 'offsetHeight']) delete field[key];
+  }
+});
+
 test('"Tout effacer" keeps a single default tab', async () => {
   $('header [data-action="reset-all"]').click();
   assert.equal($('#cBody').textContent, 'Onglets, listes, tâches et historique seront remis à zéro.');
