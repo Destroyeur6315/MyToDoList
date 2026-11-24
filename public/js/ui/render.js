@@ -74,7 +74,44 @@ export function renderFilters() {
   }).join('');
 }
 
+/* ───────── Scrollable task lists ───────── */
+
+/** Fades the top / bottom edge of a task list when tasks are hidden there. */
+export function updateTaskScrollFade(scroller) {
+  if (!scroller) return;
+  const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+  scroller.toggleAttribute('data-fade-top', scroller.scrollTop > 1);
+  scroller.toggleAttribute('data-fade-bottom', scroller.scrollTop < maxScroll - 1);
+}
+
+export function updateAllTaskScrollFades() {
+  document.querySelectorAll('[data-task-scroll]').forEach(updateTaskScrollFade);
+}
+
+/**
+ * Runs a re-render without losing where each task list was scrolled to:
+ * cards are rebuilt from HTML strings, which would otherwise jump back to
+ * the top on every checkbox click.
+ * @param {() => void} update
+ */
+function keepTaskScroll(update) {
+  const positions = new Map();
+  document.querySelectorAll('[data-task-scroll]').forEach(scroller => {
+    positions.set(scroller.dataset.taskScroll, scroller.scrollTop);
+  });
+  update();
+  document.querySelectorAll('[data-task-scroll]').forEach(scroller => {
+    const top = positions.get(scroller.dataset.taskScroll);
+    if (top) scroller.scrollTop = top;
+    updateTaskScrollFade(scroller);
+  });
+}
+
 export function renderLists() {
+  keepTaskScroll(renderListCards);
+}
+
+function renderListCards() {
   const container = byId('lists');
   const lists = activeLists();
   if (!lists.length) {
@@ -102,7 +139,7 @@ export function renderHistory() {
     + '<h2 class="font-display text-[17px] font-semibold">Historique</h2>'
     + `<p class="mt-1 text-[13px] text-muted">${summary}</p></div>`;
 
-  byId('history').innerHTML = lists.map(historyCard).join('');
+  keepTaskScroll(() => { byId('history').innerHTML = lists.map(list => historyCard(list)).join(''); });
 }
 
 /** Header tabs: one per tab of the account, then "Historique" on the right. */
@@ -171,6 +208,6 @@ export function refreshTask(taskId) {
   renderQuickWins();
   const list = findList(task.listId);
   const card = list && byId(`list-${list.id}`);
-  if (card) card.outerHTML = listCard(list, false);
+  if (card) keepTaskScroll(() => { card.outerHTML = listCard(list, false); });
   else renderLists();
 }

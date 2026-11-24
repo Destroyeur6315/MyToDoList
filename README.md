@@ -40,7 +40,7 @@ Listes, quick wins, suivi « en cours » et historique, avec une API REST et une
 - **Statuts** *À faire*, *En cours* et *Terminée*, avec un bouton « Démarrer » sur chaque tâche.
 - **Criticité** (basse → critique) et **durée estimée** (quelques minutes → un mois) pour chaque tâche.
 - **Onglets** : regroupez vos listes par thème (« Mes listes boulot », « Mes listes perso »…). Créez, renommez (double-clic sur l'onglet), réordonnez et supprimez vos onglets ; celui le plus à gauche s'affiche à l'ouverture.
-- **Listes multiples** : progression par liste, archivage, masquage par appareil, déplacement d'un onglet à l'autre.
+- **Listes multiples** : progression par liste, archivage, masquage par appareil, déplacement d'un onglet à l'autre. Les longues listes défilent dans leur carte au lieu d'allonger la page.
 - **Recherche** et filtres par statut.
 - **Historique** des tâches terminées.
 - **Thèmes clair et sombre**, mémorisés par appareil (préférence du système à la première visite).
