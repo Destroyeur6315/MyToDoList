@@ -68,6 +68,22 @@ export function askConfirm({ title, message, confirmLabel, onConfirm }) {
 /* ───────── Task form ───────── */
 
 /**
+ * Grows (or shrinks) a textarea to fit its text, so new lines never hide
+ * behind a scrollbar. Its CSS `max-height` caps the growth; past that
+ * height the field scrolls. `rows` stays the minimum height.
+ * @param {HTMLTextAreaElement} textarea
+ */
+export function autoGrowTextarea(textarea) {
+  // Reset first so the field can shrink when text is removed.
+  textarea.style.height = 'auto';
+  // Elements are border-box: the height includes the borders, scrollHeight does not.
+  const borders = textarea.offsetHeight - textarea.clientHeight;
+  textarea.style.height = `${textarea.scrollHeight + borders}px`;
+  // Only show a scrollbar once the max-height clamps the field.
+  textarea.style.overflowY = textarea.scrollHeight > textarea.clientHeight ? 'auto' : 'hidden';
+}
+
+/**
  * Renders a row of toggle buttons (criticality / status).
  * @param {HTMLElement} container
  * @param {{ value: string|number, label: string }[]} options
@@ -139,6 +155,8 @@ export function openTaskModal({ listId, task } = {}) {
   renderTaskSegments();
   renderQuickWinHint();
   openModal('taskModal', 'tName');
+  // After openModal: the dialog is laid out, so the text can be measured.
+  autoGrowTextarea(byId('tDesc'));
 }
 
 function submitTaskForm(event) {
@@ -287,6 +305,8 @@ export function initModals() {
   byId('listForm').addEventListener('submit', submitListForm);
   byId('tabForm').addEventListener('submit', submitTabForm);
   byId('tDur').addEventListener('change', renderQuickWinHint);
+  // Typing, pasting or pressing Enter in the description grows the field.
+  byId('tDesc').addEventListener('input', event => autoGrowTextarea(event.target));
 
   byId('cOk').addEventListener('click', () => {
     const confirmed = pendingConfirm;

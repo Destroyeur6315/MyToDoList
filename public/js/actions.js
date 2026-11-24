@@ -15,7 +15,8 @@ import {
   askConfirm, closeModals, isTabsModalOpen, openListModal, openTabModal, openTabsModal, openTaskModal, renderTabManager
 } from './ui/modals.js';
 import {
-  render, renderLists, renderQuickWins, renderTabs, refreshTask, revealActiveTab, updateTabStripFade
+  render, renderLists, renderQuickWins, renderTabs, refreshTask, revealActiveTab, updateAllTaskScrollFades,
+  updateTabStripFade, updateTaskScrollFade
 } from './ui/render.js';
 import { toggleTheme } from './ui/theme.js';
 import { toast } from './ui/toast.js';
@@ -237,7 +238,11 @@ const CLICK_ACTIONS = {
   'del-task': id => confirmDeleteTask(id),
   'toggle-progress': id => toggleTaskProgress(id),
   'toggle-done': id => toggleTaskDone(id),
-  'toggle-desc': (id, el) => el.classList.toggle('line-clamp-2')
+  'toggle-desc': (id, el) => {
+    el.classList.toggle('line-clamp-2');
+    // The task got taller or shorter: the list may now (no longer) overflow.
+    updateTaskScrollFade(el.closest('[data-task-scroll]'));
+  }
 };
 
 function onClick(event) {
@@ -275,7 +280,14 @@ export function initActions() {
   document.addEventListener('change', onChange);
   document.addEventListener('dblclick', onDoubleClick);
   byId('tabBar').addEventListener('scroll', updateTabStripFade, { passive: true });
-  window.addEventListener('resize', updateTabStripFade);
+  // `scroll` does not bubble: listen in the capture phase for every task list.
+  document.addEventListener('scroll', event => {
+    if (event.target instanceof Element && event.target.matches('[data-task-scroll]')) updateTaskScrollFade(event.target);
+  }, { capture: true, passive: true });
+  window.addEventListener('resize', () => {
+    updateTabStripFade();
+    updateAllTaskScrollFades();
+  });
   document.addEventListener('keydown', onKeyDown);
 
   const search = byId('search');

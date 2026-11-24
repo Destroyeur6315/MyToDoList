@@ -68,7 +68,7 @@ let sync;
 let render;
 
 /** Browser globals the front-end modules use. */
-const BROWSER_GLOBALS = ['window', 'document', 'localStorage', 'CSS', 'HTMLElement'];
+const BROWSER_GLOBALS = ['window', 'document', 'localStorage', 'CSS', 'Element', 'HTMLElement'];
 
 /** Same-origin fetch for the page: resolves relative URLs and carries the session cookie. */
 async function pageFetch(url, { method, headers, body } = {}) {
@@ -436,6 +436,177 @@ test('the tab strip fades the edges that hide tabs and scrolls to the active tab
   render.revealActiveTab();
   assert.equal(scrolls.length, 1);
   $$('#tabBar [data-action="tab"]')[0].click();
+});
+
+/**
+ * jsdom has no layout engine: gives elements a fake geometry and a working
+ * `scrollTop` for the duration of `work`.
+ */
+async function withFakeScrolling(work) {
+  const proto = dom.window.Element.prototype;
+  const original = Object.getOwnPropertyDescriptor(proto, 'scrollTop');
+  const positions = new WeakMap();
+  Object.defineProperty(proto, 'scrollTop', {
+    configurable: true,
+    get() { return positions.get(this) || 0; },
+    set(value) { positions.set(this, value); }
+  });
+  try {
+    await work();
+  } finally {
+    Object.defineProperty(proto, 'scrollTop', original);
+  }
+}
+
+/** Sets read-only layout values (`scrollHeight`, `clientHeight`…) on an element. */
+function setLayout(element, values) {
+  for (const [key, value] of Object.entries(values)) Object.defineProperty(element, key, { value, configurable: true });
+}
+
+/** Adds `count` tasks to a list directly in the state, then re-renders. */
+function addTasks(listId, count, extra = {}) {
+  for (let i = 0; i < count; i++) {
+    state.state.tasks.push({
+      id: `${listId}-task${i}`, listId, name: `Tâche ${i + 1}`, description: '', duration: 'h1',
+      criticality: 3, status: 'todo', createdAt: i, completedAt: null, ...extra
+    });
+  }
+  render.render();
+}
+
+const scrollerOf = listId => $(`[data-task-scroll="${listId}"]`);
+const fades = scroller => [scroller.hasAttribute('data-fade-top'), scroller.hasAttribute('data-fade-bottom')];
+
+test('long lists scroll inside their card and fade the edges that hide tasks', async () => {
+  createListFromHeader('Longue liste');
+  const list = state.state.lists.find(l => l.name === 'Longue liste');
+  addTasks(list.id, 12);
+
+  const scroller = scrollerOf(list.id);
+  assert.ok(scroller.classList.contains('task-scroll'));
+  assert.ok($(`#list-${list.id}`).contains(scroller), 'the scroll box is inside the list card');
+  assert.equal(scroller.querySelectorAll('li').length, 12);
+
+  await withFakeScrolling(() => {
+    // Short enough to fit: no fade at all.
+    setLayout(scroller, { scrollHeight: 400, clientHeight: 400 });
+    render.updateTaskScrollFade(scroller);
+    assert.deepEqual(fades(scroller), [false, false]);
+
+    // Overflowing, at the top: only the bottom edge hides tasks.
+    setLayout(scroller, { scrollHeight: 1000, clientHeight: 400 });
+    window.dispatchEvent(new dom.window.Event('resize'));
+    assert.deepEqual(fades(scroller), [false, true]);
+
+    // Scrolled to the middle, then to the end (the scroll listener updates the fades).
+    scroller.scrollTop = 300;
+    scroller.dispatchEvent(new dom.window.Event('scroll'));
+    assert.deepEqual(fades(scroller), [true, true]);
+    scroller.scrollTop = 600;
+    scroller.dispatchEvent(new dom.window.Event('scroll'));
+    assert.deepEqual(fades(scroller), [true, false]);
+
+    // Scrolling something else is ignored; a missing scroll box too.
+    $('#tabBar').dispatchEvent(new dom.window.Event('scroll'));
+    render.updateTaskScrollFade(null);
+    assert.deepEqual(fades(scroller), [true, false]);
+  });
+});
+
+test('task lists keep their scroll position when a task or the board is re-rendered', async () => {
+  const list = state.state.lists.find(l => l.name === 'Longue liste');
+  await withFakeScrolling(() => {
+    const before = scrollerOf(list.id);
+    before.scrollTop = 300;
+
+    // Starting a task only re-renders its card.
+    $(`[data-action="toggle-progress"][data-id="${list.id}-task5"]`).click();
+    const after = scrollerOf(list.id);
+    assert.notEqual(after, before, 'the card was rebuilt');
+    assert.equal(after.scrollTop, 300);
+
+    // A full re-render (status filter) keeps it too.
+    $('[data-action="filter"][data-key="all"]').click();
+    assert.equal(scrollerOf(list.id).scrollTop, 300);
+
+    // Lists that were not scrolled stay at the top.
+    createListFromHeader('Courte');
+    const short = state.state.lists.find(l => l.name === 'Courte');
+    addTasks(short.id, 1, { description: 'Un long contexte pour reprendre la tâche' });
+    assert.equal(scrollerOf(short.id).scrollTop, 0);
+    assert.equal(scrollerOf(list.id).scrollTop, 300);
+
+    // Expanding a description re-checks whether the list overflows.
+    const scroller = scrollerOf(short.id);
+    setLayout(scroller, { scrollHeight: 700, clientHeight: 480 });
+    const description = scroller.querySelector('[data-action="toggle-desc"]');
+    description.click();
+    assert.equal(description.classList.contains('line-clamp-2'), false);
+    assert.deepEqual(fades(scroller), [false, true]);
+  });
+});
+
+test('archived lists scroll the same way in the history', () => {
+  const list = state.state.lists.find(l => l.name === 'Longue liste');
+  list.archived = true;
+  list.archivedAt = 1;
+  $('#historyTab').click();
+  const scroller = $(`#history [data-task-scroll="${list.id}"]`);
+  assert.ok(scroller?.classList.contains('task-scroll'));
+  assert.equal(scroller.querySelectorAll('li').length, 12);
+
+  list.archived = false;
+  list.archivedAt = null;
+  $$('#tabBar [data-action="tab"]')[0].click();
+});
+
+test('the task description field grows with its text, up to a maximum height', () => {
+  const field = $('#tDesc');
+  const BORDERS = 2;
+  const MAX_HEIGHT = 256;
+  // Fake layout: 20px per line plus padding, never less than the 2 rows.
+  const contentHeight = () => Math.max(64, field.value.split('\n').length * 20 + 24);
+  const clientHeight = () => Math.min(parseFloat(field.style.height) || 66, MAX_HEIGHT) - BORDERS;
+  Object.defineProperty(field, 'scrollHeight', { configurable: true, get: contentHeight });
+  Object.defineProperty(field, 'clientHeight', { configurable: true, get: clientHeight });
+  Object.defineProperty(field, 'offsetHeight', { configurable: true, get: () => clientHeight() + BORDERS });
+  const type = value => {
+    field.value = value;
+    field.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  };
+
+  try {
+    $('#lists [data-action="new-task"]').click();
+    assert.ok(isOpen('taskModal'));
+    assert.equal(field.style.height, '66px', 'an empty field keeps its two rows');
+
+    // Pressing Enter adds lines: the field grows, without a scrollbar.
+    type('Contexte\nÉtape 1\nÉtape 2\nÉtape 3\nÉtape 4');
+    assert.equal(field.style.height, '126px');
+    assert.equal(field.style.overflowY, 'hidden');
+
+    // Past the maximum height, the field stops growing and scrolls.
+    type(Array.from({ length: 20 }, (_, i) => `Ligne ${i + 1}`).join('\n'));
+    assert.equal(field.style.height, '426px', 'the CSS max-height clamps it on screen');
+    assert.equal(field.style.overflowY, 'auto');
+
+    // Removing text shrinks it back.
+    type('');
+    assert.equal(field.style.height, '66px');
+    assert.equal(field.style.overflowY, 'hidden');
+    dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }));
+
+    // Editing a task with a long description opens the field at the right size.
+    const task = state.state.tasks.find(t => t.description);
+    task.description = 'Ligne 1\nLigne 2\nLigne 3\nLigne 4';
+    $(`[data-action="edit-task"][data-id="${task.id}"]`).click();
+    assert.equal(field.value, task.description);
+    assert.equal(field.style.height, '106px');
+    dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }));
+    assert.equal(isOpen('taskModal'), false);
+  } finally {
+    for (const key of ['scrollHeight', 'clientHeight', 'offsetHeight']) delete field[key];
+  }
 });
 
 test('"Tout effacer" keeps a single default tab', async () => {

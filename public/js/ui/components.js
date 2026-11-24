@@ -14,6 +14,19 @@ import {
 import { escapeHtml, formatDate, plural } from '../utils.js';
 import { ICONS, svgIcon } from './icons.js';
 
+/**
+ * Scrollable box around the tasks of a list: long lists scroll inside their
+ * card instead of stretching the page (styles: `.task-scroll` in
+ * styles/main.css). `data-task-scroll` lets the renderer keep the scroll
+ * position when the card is re-rendered.
+ * @param {string} listId
+ * @param {string} rows `<li>` elements.
+ * @param {string} [extraClasses]
+ */
+const taskScroller = (listId, rows, extraClasses = '') =>
+  `<div class="task-scroll -mx-2 ${extraClasses}" data-task-scroll="${escapeHtml(listId)}">`
+  + `<ul class="divide-y divide-line/60">${rows}</ul></div>`;
+
 /** Extra class that blurs the text of a masked list. */
 const maskClass = listId => (isListMasked(listId) ? ' masked-text' : '');
 
@@ -203,7 +216,7 @@ export function listCard(list, animate = true) {
   } else if (!visible.length) {
     body = '<p class="px-2 py-4 text-[13px] text-muted">Aucune tâche ne correspond au filtre.</p>';
   } else {
-    body = `<ul class="-mx-2 divide-y divide-line/60">${visible.map(t => taskRow(t)).join('')}</ul>`;
+    body = taskScroller(list.id, visible.map(t => taskRow(t)).join(''));
   }
 
   let summary = `${stats.done}/${stats.total} terminées`;
@@ -256,7 +269,7 @@ export function historyCard(list) {
     + `<h3 class="font-display text-[15px] font-semibold leading-snug${maskClass(list.id)}">${escapeHtml(list.name)}</h3>`
     + `<p class="mt-0.5 text-[12px] text-muted">${historyTabLabel(list)}${plural(tasks.length, 'tâche')} · rangée le ${formatDate(list.archivedAt || Date.now())}</p>`
     + '</div></div>'
-    + `<ul class="-mx-2 mt-2 flex-1 divide-y divide-line/60">${tasks.map(t => taskRow(t, true)).join('')}</ul>`
+    + taskScroller(list.id, tasks.map(t => taskRow(t, true)).join(''), 'mt-2 flex-1')
     + '<div class="mt-3 flex gap-2">'
     + `<button type="button" data-action="restore" data-id="${escapeHtml(list.id)}"`
     + ' class="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-line bg-surface text-[13px] font-medium transition hover:border-accent">'
