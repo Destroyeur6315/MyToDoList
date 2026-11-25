@@ -6,9 +6,10 @@ import {
   CRITICALITIES, DEFAULT_CRITICALITY, DEFAULT_DURATION, DURATIONS, MAX_TABS, QUICK_WIN_THRESHOLD, STATUSES,
   TAB_NAME_MAX_LENGTH
 } from '../constants.js';
-import { activeLists, findTab, quickWinScore, setTaskStatus, state } from '../state.js';
+import { activeLists, findTab, setTaskList, setTaskStatus, state } from '../state.js';
 import { persist } from '../sync.js';
 import { cleanTabName } from '../tabs.js';
+import { quickWinScore } from '../taskOrder.js';
 import { byId, createId, escapeHtml } from '../utils.js';
 import { tabManagerRow } from './components.js';
 import { ICONS, svgIcon } from './icons.js';
@@ -169,17 +170,20 @@ function submitTaskForm(event) {
   const fields = {
     name,
     description: byId('tDesc').value.trim(),
-    listId: byId('tList').value,
     duration: byId('tDur').value,
     criticality: taskForm.criticality
   };
+  const listId = byId('tList').value;
 
   if (editingTask) {
     Object.assign(editingTask, fields);
+    setTaskList(editingTask, listId);
     setTaskStatus(editingTask, taskForm.status);
     toast('Tâche enregistrée');
   } else {
-    const task = { id: createId(), createdAt: Date.now(), completedAt: null, status: 'todo', ...fields };
+    const task = {
+      id: createId(), listId, createdAt: Date.now(), completedAt: null, status: 'todo', position: null, ...fields
+    };
     setTaskStatus(task, taskForm.status);
     state.tasks.push(task);
     // A stale search or filter must not hide the task that was just added.

@@ -9,7 +9,8 @@
 const express = require('express');
 const { HttpError, ValidationError } = require('../http/errors');
 const {
-  LIMITS, normalizeList, normalizeTab, normalizeTabUpdate, normalizeTask, validateBoardSnapshot
+  LIMITS, normalizeList, normalizeTab, normalizeTabUpdate, normalizeTask, normalizeTaskUpdate,
+  validateBoardSnapshot
 } = require('../domain/validation');
 const { generateId } = require('../security/crypto');
 
@@ -121,10 +122,11 @@ function createBoardRouter({ board }) {
     res.status(201).json(task);
   });
 
+  // `{ listId?, position? }` moves the task; `position: null` goes back to the automatic order.
   router.patch('/tasks/:id', (req, res) => {
     const existing = board.findTask(req.user.id, req.params.id);
     if (!existing) throw new HttpError(404, TASK_NOT_FOUND);
-    const task = normalizeTask({ ...existing, ...req.body, id: existing.id, createdAt: existing.createdAt });
+    const task = normalizeTaskUpdate(req.body, existing);
     assertListExists(req.user.id, task.listId);
     board.updateTask(req.user.id, task);
     res.json(task);

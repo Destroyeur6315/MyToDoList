@@ -39,6 +39,9 @@ const isValidName = (value, maxLength) =>
 /** Timestamps are milliseconds since epoch, or `null` when not applicable. */
 const isValidTimestamp = value => value === null || (Number.isSafeInteger(value) && value >= 0);
 
+/** Rank of a task in its list, or `null` while the list is sorted automatically. */
+const isValidTaskPosition = value => value === null || (Number.isSafeInteger(value) && value >= 0);
+
 const isValidCriticality = value =>
   Number.isInteger(value) && value >= CRITICALITY.min && value <= CRITICALITY.max;
 
@@ -102,6 +105,7 @@ function normalizeList(input, now = Date.now()) {
  */
 function normalizeTask(input, now = Date.now()) {
   const description = input?.description ?? '';
+  const position = input?.position ?? null;
   const valid = input
     && isSafeId(input.id)
     && isSafeId(input.listId)
@@ -110,7 +114,8 @@ function normalizeTask(input, now = Date.now()) {
     && description.length <= LIMITS.taskDescription
     && DURATIONS.has(input.duration)
     && isValidCriticality(input.criticality)
-    && STATUSES.has(input.status);
+    && STATUSES.has(input.status)
+    && isValidTaskPosition(position);
   if (!valid) throw new ValidationError('Tâche invalide');
 
   const createdAt = input.createdAt ?? now;
@@ -127,9 +132,23 @@ function normalizeTask(input, now = Date.now()) {
     duration: input.duration,
     criticality: input.criticality,
     status: input.status,
+    position,
     createdAt,
     completedAt
   };
+}
+
+/**
+ * Validates a partial task update (`PATCH /api/tasks/:id`). Identity and
+ * creation date are immutable. A position only makes sense within its list:
+ * moving to another list without giving one resets it.
+ * @param {object} input Raw body.
+ * @param {object} existing Stored task.
+ */
+function normalizeTaskUpdate(input, existing) {
+  const task = normalizeTask({ ...existing, ...input, id: existing.id, createdAt: existing.createdAt });
+  const changedList = task.listId !== existing.listId;
+  return changedList && input.position === undefined ? { ...task, position: null } : task;
 }
 
 /**
@@ -201,6 +220,7 @@ module.exports = {
   normalizeTabUpdate,
   normalizeList,
   normalizeTask,
+  normalizeTaskUpdate,
   validateRegistration,
   parseLogin,
   validateBoardSnapshot

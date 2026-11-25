@@ -41,6 +41,7 @@ Listes, quick wins, suivi « en cours » et historique, avec une API REST et une
 - **Criticité** (basse → critique) et **durée estimée** (quelques minutes → un mois) pour chaque tâche.
 - **Onglets** : regroupez vos listes par thème (« Mes listes boulot », « Mes listes perso »…). Créez, renommez (double-clic sur l'onglet), réordonnez et supprimez vos onglets ; celui le plus à gauche s'affiche à l'ouverture.
 - **Listes multiples** : progression par liste, archivage, masquage par appareil, déplacement d'un onglet à l'autre. Les longues listes défilent dans leur carte au lieu d'allonger la page.
+- **Déplacement des tâches** par glisser-déposer, au sein d'une liste ou vers une autre : à la souris en attrapant la tâche, au doigt par sa poignée, au clavier avec les flèches sur la poignée. Maintenir la tâche sur un onglet l'ouvre, pour la déposer dans l'une de ses listes. Une liste réordonnée à la main conserve cet ordre (tâches terminées en bas) ; un bouton de la carte rétablit le tri automatique.
 - **Recherche** et filtres par statut.
 - **Historique** des tâches terminées.
 - **Thèmes clair et sombre**, mémorisés par appareil (préférence du système à la première visite).
@@ -136,9 +137,11 @@ Toutes les requêtes qui modifient des données doivent envoyer l'en-tête `X-My
 | `GET` / `POST` | `/api/lists` | Lister / créer une liste `{ name, tabId? }` (onglet le plus à gauche par défaut) |
 | `PATCH` / `DELETE` | `/api/lists/:id` | Modifier / supprimer une liste |
 | `GET` / `POST` | `/api/tasks` | Lister / créer une tâche |
-| `PATCH` / `DELETE` | `/api/tasks/:id` | Modifier / supprimer une tâche |
+| `PATCH` / `DELETE` | `/api/tasks/:id` | Modifier / déplacer `{ listId?, position? }` / supprimer une tâche |
 
 Chaque compte a au moins un onglet : le dernier ne peut pas être supprimé (**400**). Supprimer un onglet supprime aussi ses listes, archivées comprises, et leurs tâches.
+
+La `position` d'une tâche est son rang dans la liste (entier positif ou nul), ou `null` pour le tri automatique. Les tâches sans position suivent celles qui en ont une, et les tâches terminées restent en bas. Changer de liste sans donner de `position` la remet à `null`.
 
 L'interface se synchronise avec `GET` / `PUT /api/state`. Les routes par ressource servent à une application mobile ou à une intégration tierce. Le champ `revision` empêche d'écraser sans le savoir une modification faite ailleurs : une requête obsolète reçoit **409 Conflict**.
 

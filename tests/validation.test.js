@@ -9,7 +9,8 @@ const assert = require('node:assert/strict');
 
 const { ValidationError } = require('../src/http/errors');
 const {
-  normalizeList, normalizeTab, normalizeTabUpdate, normalizeTask, validateBoardSnapshot
+  normalizeList, normalizeTab, normalizeTabUpdate, normalizeTask, normalizeTaskUpdate,
+  validateBoardSnapshot
 } = require('../src/domain/validation');
 
 const NOW = 1_700_000_000_000;
@@ -59,6 +60,26 @@ test('normalizeTask sets completedAt only for finished tasks', () => {
   assert.equal(normalizeTask(task({ status: 'done', completedAt: 5 }), NOW).completedAt, 5);
   assert.equal(normalizeTask(task({ status: 'doing', completedAt: 5 }), NOW).completedAt, null);
   assert.equal(normalizeTask(task(), NOW).description, '');
+});
+
+test('normalizeTask accepts a position and defaults to the automatic order', () => {
+  assert.equal(normalizeTask(task()).position, null);
+  for (const position of [null, 0, 12]) assert.equal(normalizeTask(task({ position })).position, position);
+  for (const position of [-1, 1.5, '2', true, 2 ** 53]) {
+    assert.throws(() => normalizeTask(task({ position })), ValidationError, String(position));
+  }
+});
+
+test('normalizeTaskUpdate keeps the identity, and the position only within the same list', () => {
+  const existing = normalizeTask(task({ position: 3, createdAt: 5 }));
+  assert.deepEqual(normalizeTaskUpdate({ id: 'x', createdAt: 9 }, existing), existing);
+  assert.deepEqual(normalizeTaskUpdate(undefined, existing), existing);
+  assert.equal(normalizeTaskUpdate({ position: 1 }, existing).position, 1);
+  assert.equal(normalizeTaskUpdate({ position: null }, existing).position, null);
+  assert.equal(normalizeTaskUpdate({ listId: 'l1', name: 'X' }, existing).position, 3);
+  assert.equal(normalizeTaskUpdate({ listId: 'l2' }, existing).position, null);
+  assert.equal(normalizeTaskUpdate({ listId: 'l2', position: 0 }, existing).position, 0);
+  assert.throws(() => normalizeTaskUpdate({ position: -1 }, existing), ValidationError);
 });
 
 test('normalizeTask rejects out-of-range values', () => {

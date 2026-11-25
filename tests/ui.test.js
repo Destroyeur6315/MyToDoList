@@ -609,6 +609,386 @@ test('the task description field grows with its text, up to a maximum height', (
   }
 });
 
+/* ───────── Moving tasks ───────── */
+
+const listNamed = name => state.state.lists.find(l => l.name === name);
+const orderOf = list => $$(`#list-${list.id} [data-task-id]`).map(row => row.dataset.taskId);
+const rowOf = id => $(`#lists [data-task-id="${id}"]`);
+const handleOf = id => rowOf(id).querySelector('[data-drag-handle]');
+const autoSortButton = list => $(`[data-action="auto-sort"][data-id="${list.id}"]`);
+const ROW_HEIGHT = 40;
+
+/** Creates a list with one task per id, in this order once sorted automatically (same score). */
+function createListWithTasks(name, ids) {
+  createListFromHeader(name);
+  const list = listNamed(name);
+  ids.forEach((id, index) => state.state.tasks.push({
+    id, listId: list.id, name: `Tâche ${id}`, description: '', duration: 'week', criticality: 3, status: 'todo',
+    position: null, createdAt: index, completedAt: null
+  }));
+  render.render();
+  return list;
+}
+
+/**
+ * Fake geometry for drags: rows are 40px high inside their list, and
+ * `elementFromPoint` returns whatever the test says is under the pointer.
+ */
+async function withFakeDrag(work) {
+  const { document, Element } = dom.window;
+  const original = Element.prototype.getBoundingClientRect;
+  const frames = [];
+  const page = { under: null, frames };
+  Element.prototype.getBoundingClientRect = function getBoundingClientRect() {
+    const rect = (top, height) => ({ left: 0, width: 300, top, height, bottom: top + height });
+    if (this.matches('[data-task-id]')) {
+      return rect([...this.parentElement.children].indexOf(this) * ROW_HEIGHT, ROW_HEIGHT);
+    }
+    if (this.matches('[data-task-scroll]')) return rect(0, this.querySelectorAll('li').length * ROW_HEIGHT);
+    return rect(-100, 0);
+  };
+  document.elementFromPoint = () => page.under;
+  const realFrame = dom.window.requestAnimationFrame;
+  dom.window.requestAnimationFrame = callback => frames.push(callback);
+  try {
+    await work(page);
+  } finally {
+    Element.prototype.getBoundingClientRect = original;
+    delete document.elementFromPoint;
+    dom.window.requestAnimationFrame = realFrame;
+    // The click that ends a drag is ignored until the next tick.
+    await new Promise(resolve => realTimers.setTimeout(resolve, 10));
+  }
+}
+
+/** Fires a pointer event, by default with the main button of a mouse pressed. */
+function pointer(target, type, y, options = {}) {
+  target.dispatchEvent(new dom.window.PointerEvent(type, {
+    bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, pointerType: 'mouse', button: 0, buttons: 1,
+    clientX: 10, clientY: y, ...options
+  }));
+}
+const doc = () => dom.window.document;
+
+/** Drags the task `id` to the height `y` of a card, without releasing it. */
+function dragOver(page, id, card, y) {
+  pointer(rowOf(id), 'pointerdown', 500);
+  page.under = card;
+  pointer(doc(), 'pointermove', y);
+}
+const release = y => pointer(doc(), 'pointerup', y, { buttons: 0 });
+
+test('dragging a task reorders its list, shows where it lands and saves the order', async () => {
+  const list = createListWithTasks('Ordre', ['o1', 'o2', 'o3']);
+  assert.deepEqual(orderOf(list), ['o1', 'o2', 'o3']);
+  assert.equal(autoSortButton(list), null, 'no reset button while the sort is automatic');
+
+  await withFakeDrag(page => {
+    dragOver(page, 'o3', $(`#list-${list.id}`), 5);
+    assert.ok($('.task-ghost'), 'a copy of the task follows the pointer');
+    assert.equal($('.task-ghost').style.transform, 'translate(0px, -415px)');
+    assert.ok(rowOf('o3').classList.contains('task-dragged'));
+    assert.equal(rowOf('o1').dataset.drop, 'before');
+    assert.equal($(`#list-${list.id}`).dataset.drop, 'into');
+
+    // Below the last other task.
+    pointer(doc(), 'pointermove', 79);
+    assert.equal(rowOf('o1').dataset.drop, undefined);
+    pointer(doc(), 'pointermove', 5);
+    release(5);
+  });
+  assert.deepEqual(orderOf(list), ['o3', 'o1', 'o2']);
+  assert.equal($('.task-ghost'), null);
+  assert.equal($('[data-drop]'), null);
+  assert.equal(doc().documentElement.classList.contains('task-drag-active'), false);
+
+  await settle();
+  const saved = (await serverState()).tasks.filter(t => t.listId === list.id);
+  assert.deepEqual(Object.fromEntries(saved.map(t => [t.id, t.position])), { o3: 0, o1: 1, o2: 2 });
+
+  // Above and below the visible part of the list: first and last place.
+  await withFakeDrag(page => {
+    dragOver(page, 'o3', $(`#list-${list.id}`), 200);
+    assert.equal(rowOf('o2').dataset.drop, 'after');
+    release(200);
+    assert.deepEqual(orderOf(list), ['o1', 'o2', 'o3']);
+    dragOver(page, 'o3', $(`#list-${list.id}`), -20);
+    release(-20);
+    assert.deepEqual(orderOf(list), ['o3', 'o1', 'o2']);
+  });
+});
+
+test('the automatic sort of a list can be restored', async () => {
+  const list = listNamed('Ordre');
+  autoSortButton(list).click();
+  assert.deepEqual(orderOf(list), ['o1', 'o2', 'o3']);
+  assert.equal(autoSortButton(list), null);
+  assert.equal(toastText(), 'Tri automatique rétabli');
+
+  await settle();
+  const saved = (await serverState()).tasks.filter(t => t.listId === list.id);
+  assert.deepEqual(saved.map(t => t.position), [null, null, null]);
+});
+
+test('dragging a task to another list moves it there', async () => {
+  const source = listNamed('Ordre');
+  const target = createListWithTasks('Cible', ['c1', 'c2']);
+  const empty = createListWithTasks('Vide', []);
+
+  await withFakeDrag(page => {
+    dragOver(page, 'o2', $(`#list-${target.id}`), 25);
+    assert.equal(rowOf('c2').dataset.drop, 'before');
+    release(25);
+    assert.deepEqual(orderOf(source), ['o1', 'o3']);
+    assert.deepEqual(orderOf(target), ['c1', 'o2', 'c2']);
+    assert.equal(toastText(), 'Tâche déplacée dans « Cible »');
+
+    dragOver(page, 'o3', $(`#list-${empty.id}`), 25);
+    release(25);
+    assert.deepEqual(orderOf(empty), ['o3']);
+    assert.equal(autoSortButton(empty), null, 'a lone task needs no manual order');
+  });
+
+  await settle();
+  const { tasks } = await serverState();
+  assert.equal(tasks.find(t => t.id === 'o2').listId, target.id);
+  assert.equal(tasks.find(t => t.id === 'o3').listId, empty.id);
+});
+
+test('a drag that is too short, cancelled or dropped elsewhere changes nothing', async () => {
+  const list = listNamed('Cible');
+  const expected = ['c1', 'o2', 'c2'];
+  const card = () => $(`#list-${list.id}`);
+  const unchanged = message => {
+    assert.deepEqual(orderOf(list), expected, message);
+    assert.equal($('.task-ghost'), null, message);
+  };
+
+  await settle();
+  const { revision } = await serverState();
+  await withFakeDrag(page => {
+    page.under = card();
+    pointer(rowOf('c2'), 'pointerdown', 100);
+    pointer(doc(), 'pointermove', 102);
+    assert.equal($('.task-ghost'), null, 'the pointer barely moved');
+    release(102);
+
+    // Other buttons, fingers outside the handle and clicks on controls do not grab the task.
+    const ignored = [
+      [rowOf('c2'), { button: 2 }],
+      [rowOf('c2'), { isPrimary: false }],
+      [rowOf('c2'), { pointerType: 'touch' }],
+      [rowOf('c2').querySelector('[data-action="edit-task"]'), {}],
+      [card(), {}]
+    ];
+    for (const [target, options] of ignored) {
+      pointer(target, 'pointerdown', 500, options);
+      pointer(doc(), 'pointermove', 5);
+      assert.equal($('.task-ghost'), null);
+      release(5);
+    }
+
+    dragOver(page, 'c2', card(), 5);
+    pointer(doc(), 'pointermove', 80, { pointerId: 2 });
+    pointer(doc(), 'pointerup', 5, { pointerId: 2 });
+    pointer(doc(), 'pointercancel', 5, { pointerId: 2 });
+    assert.ok($('.task-ghost'), 'other pointers are ignored');
+    doc().dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    unchanged('Escape cancels');
+
+    dragOver(page, 'c2', card(), 5);
+    pointer(doc(), 'pointercancel', 5);
+    unchanged('the browser took over the gesture');
+
+    dragOver(page, 'c2', card(), 5);
+    pointer(doc(), 'pointermove', 5, { buttons: 0 });
+    unchanged('the button was released outside of the page');
+
+    dragOver(page, 'c2', null, 5);
+    release(5);
+    unchanged('dropped outside of the lists');
+
+    // Back to its own place.
+    dragOver(page, 'c2', card(), 115);
+    assert.equal($('[data-drop]'), null);
+    release(115);
+    unchanged('dropped at the same place');
+  });
+  await settle();
+  assert.equal((await serverState()).revision, revision, 'nothing was saved');
+});
+
+test('a drag prevents text selection, and its final click does nothing', async () => {
+  const blocked = type => !doc().dispatchEvent(new dom.window.Event(type, { bubbles: true, cancelable: true }));
+  assert.equal(blocked('selectstart'), false);
+  await withFakeDrag(page => {
+    dragOver(page, 'c2', null, 5);
+    assert.equal(blocked('selectstart'), true);
+    assert.equal(blocked('dragstart'), true);
+    release(5);
+    $('header [data-action="new-list"]').click();
+    assert.equal(isOpen('listModal'), false);
+  });
+  $('header [data-action="new-list"]').click();
+  assert.ok(isOpen('listModal'), 'later clicks work');
+  $('#listModal [data-action="close-modal"]').click();
+});
+
+test('on touch screens the handle drags the task, and finished tasks stay at the bottom', async () => {
+  const list = createListWithTasks('Tactile', ['t1', 't2', 't3']);
+  state.setTaskStatus(state.findTask('t3'), 'done');
+  render.render();
+  const touch = { pointerType: 'touch' };
+
+  await withFakeDrag(page => {
+    pointer(handleOf('t1'), 'pointerdown', 10, touch);
+    page.under = $(`#list-${list.id}`);
+    pointer(doc(), 'pointermove', 115, touch);
+    assert.equal(rowOf('t2').dataset.drop, 'after', 'the open task lands above the finished one');
+    assert.equal(rowOf('t3').dataset.drop, undefined);
+    pointer(doc(), 'pointerup', 115, { ...touch, buttons: 0 });
+  });
+  assert.deepEqual(orderOf(list), ['t2', 't1', 't3']);
+});
+
+test('holding a task over a tab opens it, so the task can be dropped in one of its lists', async () => {
+  const home = state.state.activeTabId;
+  createTabFromHeader('Ailleurs');
+  const target = createListWithTasks('Lointaine', ['l1']);
+  const away = state.state.activeTabId;
+  const tabOf = id => $(`#tabBar [data-id="${id}"]`);
+  tabOf(home).click();
+  const source = listNamed('Tactile');
+
+  await withFakeDrag(async page => {
+    // Leaving the tab before the delay does not open it.
+    dragOver(page, 't1', tabOf(away), 5);
+    page.under = null;
+    pointer(doc(), 'pointermove', 6);
+    await new Promise(resolve => realTimers.setTimeout(resolve, 550));
+    assert.equal(state.state.activeTabId, home);
+
+    page.under = tabOf(home);
+    pointer(doc(), 'pointermove', 7);
+    await new Promise(resolve => realTimers.setTimeout(resolve, 550));
+    assert.equal(state.state.activeTabId, home, 'the active tab stays open');
+
+    page.under = tabOf(away);
+    pointer(doc(), 'pointermove', 8);
+    await waitFor(() => state.state.activeTabId === away, 'the tab to open');
+    page.under = $(`#list-${target.id}`);
+    pointer(doc(), 'pointermove', 5);
+    release(5);
+  });
+  assert.deepEqual(orderOf(target), ['t1', 'l1']);
+
+  await settle();
+  assert.equal((await serverState()).tasks.find(t => t.id === 't1').listId, target.id);
+  tabOf(home).click();
+  assert.deepEqual(orderOf(source), ['t2', 't3']);
+});
+
+test('holding a task near an edge scrolls the list, then the page', async () => {
+  const list = listNamed('Cible');
+  const pageScrolls = [];
+  const realScrollBy = dom.window.scrollBy;
+  dom.window.scrollBy = (x, y) => pageScrolls.push(y);
+  try {
+    await withFakeScrolling(() => withFakeDrag(page => {
+      const nextFrame = () => page.frames.shift()();
+      dragOver(page, 'c1', scrollerOf(list.id), 115);
+      nextFrame();
+      assert.equal(scrollerOf(list.id).scrollTop, 10);
+      pointer(doc(), 'pointermove', 5);
+      nextFrame();
+      assert.equal(scrollerOf(list.id).scrollTop, 0);
+      assert.deepEqual(pageScrolls, []);
+
+      page.under = null;
+      pointer(doc(), 'pointermove', dom.window.innerHeight - 5);
+      nextFrame();
+      pointer(doc(), 'pointermove', -90);
+      nextFrame();
+      pointer(doc(), 'pointermove', 300);
+      nextFrame();
+      assert.deepEqual(pageScrolls, [10, -10]);
+      pointer(doc(), 'pointercancel', 300);
+    }));
+  } finally {
+    dom.window.scrollBy = realScrollBy;
+  }
+});
+
+/** Presses a key on the drag handle of a task. */
+function pressOnHandle(id, key, options = {}) {
+  handleOf(id).dispatchEvent(new dom.window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...options }));
+}
+
+test('arrow keys on a focused handle move the task and keep the focus on it', async () => {
+  const list = listNamed('Cible');
+  const focusedTask = () => doc().activeElement.closest('[data-task-id]')?.dataset.taskId;
+  pressOnHandle('c1', 'ArrowDown');
+  assert.deepEqual(orderOf(list), ['o2', 'c1', 'c2']);
+  assert.equal(toastText(), 'Position 2 sur 3');
+  assert.equal(focusedTask(), 'c1');
+  pressOnHandle('c1', 'ArrowUp');
+  pressOnHandle('c1', 'ArrowUp'); // Already first.
+  assert.deepEqual(orderOf(list), ['c1', 'o2', 'c2']);
+  pressOnHandle('c1', 'ArrowDown', { ctrlKey: true });
+  pressOnHandle('c1', 'a');
+  assert.deepEqual(orderOf(list), ['c1', 'o2', 'c2'], 'shortcuts and other keys are ignored');
+
+  // Lists are shown newest first: "Ordre" comes right after "Cible".
+  pressOnHandle('c2', 'ArrowRight');
+  assert.deepEqual(orderOf(listNamed('Ordre')), ['o1', 'c2']);
+  assert.equal(focusedTask(), 'c2');
+  pressOnHandle('c2', 'ArrowLeft');
+  assert.deepEqual(orderOf(list), ['c1', 'o2', 'c2'], 'last in a list ordered by hand');
+  pressOnHandle('t2', 'ArrowLeft'); // "Tactile" is the first list.
+  assert.equal(state.findTask('t2').listId, listNamed('Tactile').id);
+
+  await settle();
+  const saved = (await serverState()).tasks.filter(t => t.listId === list.id);
+  assert.deepEqual(saved.sort((a, b) => a.position - b.position).filter(t => t.position !== null).map(t => t.id), ['c1', 'o2']);
+});
+
+test('changing the list of a task in its form drops its position', async () => {
+  const target = listNamed('Ordre');
+  assert.equal(state.findTask('o2').position, 1);
+  $('[data-action="edit-task"][data-id="o2"]').click();
+  $('#tList').value = target.id;
+  $('#tSubmit').click();
+  assert.equal(state.findTask('o2').position, null);
+  assert.deepEqual(orderOf(target), ['o1', 'o2']);
+
+  // Other edits keep the place of the task.
+  const { position } = state.findTask('c1');
+  assert.ok(Number.isInteger(position));
+  $('[data-action="edit-task"][data-id="c1"]').click();
+  $('#tName').value = 'Renommée';
+  $('#tSubmit').click();
+  assert.equal(state.findTask('c1').position, position);
+
+  // Tasks created in the form follow the automatic order.
+  $(`[data-action="new-task"][data-id="${target.id}"]`).click();
+  $('#tName').value = 'Nouvelle';
+  $('#tSubmit').click();
+  assert.equal(state.state.tasks.at(-1).position, null);
+  await settle();
+});
+
+test('moves to unknown or archived lists are refused, and history tasks cannot be dragged', () => {
+  const list = listNamed('Ordre');
+  assert.equal(state.moveTask('absent', list.id, null), false);
+  assert.equal(state.moveTask('c1', 'absent', null), false);
+  list.archived = true;
+  assert.equal(state.moveTask('c1', list.id, null), false);
+  render.render();
+  assert.equal($('#history [data-drag-handle], #history [data-task-id]'), null);
+  list.archived = false;
+  render.render();
+});
+
 test('"Tout effacer" keeps a single default tab', async () => {
   $('header [data-action="reset-all"]').click();
   assert.equal($('#cBody').textContent, 'Onglets, listes, tâches et historique seront remis à zéro.');

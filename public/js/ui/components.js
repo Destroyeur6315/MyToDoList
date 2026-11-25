@@ -9,7 +9,7 @@
 
 import { criticalityOf, durationOf, TAB_NAME_MAX_LENGTH } from '../constants.js';
 import {
-  findList, findTab, isListMasked, isQuickWin, listsOfTab, listStats, matchesFilters, sortTasks, state, tasksOf
+  findList, findTab, isListMasked, isManuallyOrdered, isQuickWin, listsOfTab, listStats, state, tasksOf, visibleTasks
 } from '../state.js';
 import { escapeHtml, formatDate, plural } from '../utils.js';
 import { ICONS, svgIcon } from './icons.js';
@@ -132,6 +132,12 @@ const quickWinBadge = () =>
   '<span class="inline-flex items-center gap-0.5 rounded-md bg-accent/20 px-1.5 py-0.5 text-[11px] font-semibold text-ink">'
   + `${svgIcon(ICONS.bolt, 10)}quick win</span>`;
 
+/** Grip that drags a task, or moves it with the arrow keys once focused (see drag.js and actions.js). */
+const dragHandle = task =>
+  `<button type="button" data-drag-handle data-id="${escapeHtml(task.id)}" class="drag-handle"`
+  + ' aria-label="Déplacer la tâche : glisser, ou flèches du clavier" title="Déplacer la tâche">'
+  + `${svgIcon(ICONS.grip, 14)}</button>`;
+
 /**
  * One task line.
  * @param {import('../state.js').Task} task
@@ -162,7 +168,10 @@ export function taskRow(task, readOnly = false) {
     + iconButton({ action: 'del-task', id: task.id, label: 'Supprimer la tâche', icon: ICONS.trash, danger: true })
     + '</div>';
 
-  return `<li class="group flex gap-2.5 rounded-xl px-2 py-2 transition ${tone}">`
+  const draggable = readOnly ? '' : ` data-task-id="${escapeHtml(task.id)}" data-done="${done}"`;
+
+  return `<li${draggable} class="group relative flex gap-2.5 rounded-xl px-2 py-2 transition ${tone}">`
+    + (readOnly ? '' : dragHandle(task))
     + checkbox
     + '<div class="min-w-0 flex-1">'
     + `<p class="text-[14px] font-medium leading-snug${done ? ' line-through' : ''}${maskClass(task.listId)}">${escapeHtml(task.name)}</p>`
@@ -206,7 +215,7 @@ export function quickWinCard({ task, score }) {
  */
 export function listCard(list, animate = true) {
   const stats = listStats(list.id);
-  const visible = sortTasks(tasksOf(list.id).filter(matchesFilters));
+  const visible = visibleTasks(list.id);
   const filteredOut = stats.total - visible.length;
   const masked = isListMasked(list.id);
 
@@ -232,12 +241,15 @@ export function listCard(list, animate = true) {
       + `${svgIcon(ICONS.plus, 14)}Ajouter une tâche</button>`;
 
   const skin = stats.complete ? 'bg-surface2 border-line' : 'bg-surface border-line';
-  return `<article id="list-${escapeHtml(list.id)}" class="${animate ? 'fade-in ' : ''}flex flex-col rounded-xl2 border p-4 transition ${skin}">`
+  return `<article id="list-${escapeHtml(list.id)}" data-list-card="${escapeHtml(list.id)}" class="${animate ? 'fade-in ' : ''}flex flex-col rounded-xl2 border p-4 transition ${skin}">`
     + '<div class="flex items-start gap-2">'
     + '<div class="min-w-0 flex-1">'
     + `<h3 class="font-display text-[15px] font-semibold leading-snug${stats.complete ? ' text-muted' : ''}${maskClass(list.id)}">${escapeHtml(list.name)}</h3>`
     + `<p class="mt-0.5 tabular text-[12px] text-muted">${summary}</p>`
     + '</div>'
+    + (isManuallyOrdered(list.id)
+      ? iconButton({ action: 'auto-sort', id: list.id, label: 'Rétablir le tri automatique', icon: ICONS.sort })
+      : '')
     + iconButton({
       action: 'mask-list', id: list.id, pressed: masked,
       label: masked ? 'Afficher le texte de la liste' : 'Masquer le texte de la liste',

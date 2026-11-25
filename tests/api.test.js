@@ -248,6 +248,67 @@ test('databases from older versions are migrated (lists without tabs get a defau
   reopened.close();
 });
 
+test('databases from older versions are migrated (tasks.position)', () => {
+  const file = path.join(tmpDir, 'legacy-positions.sqlite');
+  const legacy = openDatabase(file);
+  legacy.exec(`
+    ALTER TABLE tasks DROP COLUMN position;
+    INSERT INTO users VALUES ('u1', 'ancienne', 'x', 1);
+    INSERT INTO lists (id, user_id, name, created_at) VALUES ('a', 'u1', 'A', 1);
+    INSERT INTO tasks (id, user_id, list_id, name, created_at) VALUES ('t', 'u1', 'a', 'T', 1);
+  `);
+  legacy.close();
+
+  // Opening the database twice also checks that the migration is idempotent.
+  openDatabase(file).close();
+  const migrated = openDatabase(file);
+  assert.equal(migrated.prepare('SELECT position FROM tasks').get().position, null, 'existing tasks keep the automatic order');
+  migrated.close();
+});
+
+test('tasks move within a list and between lists', async () => {
+  const cookie = await register('nina');
+  const list = async name => (await call('/api/lists', { method: 'POST', cookie, body: { name } })).data.id;
+  const [home, work] = [await list('Maison'), await list('Boulot')];
+  const { data: task } = await call('/api/tasks', { method: 'POST', cookie, body: { ...sampleTask, listId: home } });
+  assert.equal(task.position, null, 'the order is automatic by default');
+  const move = (body, as = cookie) => call(`/api/tasks/${task.id}`, { method: 'PATCH', cookie: as, body });
+  const stored = async () => {
+    const [{ listId, position }] = (await call('/api/tasks', { cookie })).data;
+    return { listId, position };
+  };
+
+  assert.equal((await move({ position: 4 })).status, 200);
+  assert.deepEqual(await stored(), { listId: home, position: 4 });
+  assert.equal((await move({ listId: work })).data.position, null, 'the position belonged to the previous list');
+  assert.equal((await move({ listId: home, position: 0 })).status, 200);
+  assert.deepEqual(await stored(), { listId: home, position: 0 });
+
+  assert.equal((await move({ position: -1 })).status, 400);
+  assert.equal((await move({ listId: 'absente' })).status, 404);
+  assert.equal((await move({ position: 1 }, null)).status, 401);
+  // Another user can neither move the task, nor move theirs to this list.
+  const oscar = await register('oscar');
+  assert.equal((await move({ position: 1 }, oscar)).status, 404);
+  const theirs = (await call('/api/lists', { method: 'POST', cookie: oscar, body: { name: 'X' } })).data.id;
+  const { data: theirTask } = await call('/api/tasks', { method: 'POST', cookie: oscar, body: { ...sampleTask, listId: theirs } });
+  const r = await call(`/api/tasks/${theirTask.id}`, { method: 'PATCH', cookie: oscar, body: { listId: home } });
+  assert.equal(r.status, 404);
+  assert.deepEqual(await stored(), { listId: home, position: 0 });
+});
+
+test('snapshots save the positions of tasks and reject invalid ones', async () => {
+  const cookie = await register('paul');
+  const save = (revision, position) => call('/api/state', {
+    method: 'PUT', cookie, body: { revision, tabs: [sampleTab], lists: [sampleList], tasks: [{ ...sampleTask, position }] }
+  });
+  assert.equal((await save(0, 7)).status, 200);
+  assert.equal((await call('/api/state', { cookie })).data.tasks[0].position, 7);
+  assert.equal((await save(1, -1)).status, 400);
+  assert.equal((await save(1, null)).status, 200);
+  assert.equal((await call('/api/state', { cookie })).data.tasks[0].position, null);
+});
+
 test('mutations require the CSRF header and a same-origin Origin', async () => {
   const cookie = await register('erin');
   let r = await call('/api/lists', { method: 'POST', cookie, body: { name: 'X' }, headers: { 'X-MyToDoList-Request': '' } });
