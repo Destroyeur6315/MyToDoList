@@ -110,6 +110,11 @@ function migrate(db) {
   }
   db.exec('CREATE INDEX IF NOT EXISTS idx_lists_tab ON lists(user_id, tab_id)');
   inTransaction(db, () => ensureDefaultTabs(db));
+
+  // Rank of a task moved by hand; NULL: the list is sorted automatically.
+  if (!columnsOf(db, 'tasks').includes('position')) {
+    db.exec('ALTER TABLE tasks ADD COLUMN position INTEGER');
+  }
 }
 
 /**

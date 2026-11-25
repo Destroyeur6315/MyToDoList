@@ -203,11 +203,19 @@ export function render() {
  */
 export function refreshTask(taskId) {
   const task = findTask(taskId);
-  if (!task) return;
+  if (task) refreshLists([task.listId]);
+}
+
+/** Same as `refreshTask` for whole lists (after a move, for example). */
+export function refreshLists(listIds) {
   renderStats();
   renderQuickWins();
-  const list = findList(task.listId);
-  const card = list && byId(`list-${list.id}`);
-  if (card) keepTaskScroll(() => { card.outerHTML = listCard(list, false); });
-  else renderLists();
+  keepTaskScroll(() => {
+    for (const id of new Set(listIds)) {
+      const list = findList(id);
+      const card = list && byId(`list-${list.id}`);
+      // A list of another tab has no card on screen.
+      if (card) card.outerHTML = listCard(list, false);
+    }
+  });
 }

@@ -10,7 +10,7 @@ const { inTransaction } = require('../database');
 
 const TAB_COLUMNS = 'id, name, position, created_at AS createdAt';
 const LIST_COLUMNS = 'id, tab_id AS tabId, name, archived, archived_at AS archivedAt, created_at AS createdAt';
-const TASK_COLUMNS = `id, list_id AS listId, name, description, duration, criticality, status,
+const TASK_COLUMNS = `id, list_id AS listId, name, description, duration, criticality, status, position,
   created_at AS createdAt, completed_at AS completedAt`;
 
 /** SQLite stores booleans as 0/1: convert back for the API. */
@@ -47,9 +47,9 @@ function createBoardRepository(db) {
     countTasks: db.prepare('SELECT COUNT(*) AS count FROM tasks WHERE user_id = ?'),
     findTask: db.prepare(`SELECT ${TASK_COLUMNS} FROM tasks WHERE user_id = ? AND id = ?`),
     insertTask: db.prepare(`INSERT INTO tasks (user_id, id, list_id, name, description, duration, criticality,
-      status, created_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+      status, position, created_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
     updateTask: db.prepare(`UPDATE tasks SET list_id = ?, name = ?, description = ?, duration = ?, criticality = ?,
-      status = ?, completed_at = ? WHERE user_id = ? AND id = ?`),
+      status = ?, position = ?, completed_at = ? WHERE user_id = ? AND id = ?`),
     deleteTask: db.prepare('DELETE FROM tasks WHERE user_id = ? AND id = ?'),
     deleteAllTasks: db.prepare('DELETE FROM tasks WHERE user_id = ?')
   };
@@ -92,7 +92,7 @@ function createBoardRepository(db) {
     tabIds.forEach((id, position) => statements.setTabPosition.run(position, userId, id));
   const insertTask = (userId, t) =>
     statements.insertTask.run(userId, t.id, t.listId, t.name, t.description, t.duration,
-      t.criticality, t.status, t.createdAt, t.completedAt);
+      t.criticality, t.status, t.position, t.createdAt, t.completedAt);
 
   return {
     /** Full snapshot of the user's board. */
@@ -198,7 +198,7 @@ function createBoardRepository(db) {
       insertWithinQuota(statements.countTasks, maxTasks, userId, () => insertTask(userId, task)),
     updateTask: (userId, t) => write(userId, () =>
       statements.updateTask.run(t.listId, t.name, t.description, t.duration, t.criticality,
-        t.status, t.completedAt, userId, t.id)),
+        t.status, t.position, t.completedAt, userId, t.id)),
     deleteTask: (userId, id) => remove(statements.deleteTask, userId, id)
   };
 }

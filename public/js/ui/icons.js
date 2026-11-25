@@ -15,6 +15,8 @@ export const ICONS = Object.freeze({
     + "<path d='M9.9 9.9a3 3 0 0 0 4.2 4.2'/><path d='M2 2l20 20'/>",
   sun: "<circle cx='12' cy='12' r='4'/><path d='M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4'/>",
   moon: "<path d='M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z'/>",
+  grip: "<path stroke-width='4' d='M8.5 5h.01M15.5 5h.01M8.5 12h.01M15.5 12h.01M8.5 19h.01M15.5 19h.01'/>",
+  sort: "<path d='m3 16 4 4 4-4'/><path d='M7 20V4'/><path d='M11 4h10'/><path d='M11 8h7'/><path d='M11 12h4'/>",
   chevronUp: "<path d='m18 15-6-6-6 6'/>",
   chevronDown: "<path d='m6 9 6 6 6-6'/>"
 });

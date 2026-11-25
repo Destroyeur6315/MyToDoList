@@ -5,18 +5,20 @@
 
 import { DEFAULT_TAB_NAME, TAB_NAME_MAX_LENGTH } from './constants.js';
 import {
-  deleteList, deleteTab, deleteTask, findList, findTab, findTask, listsOfTab, listStats, setTaskStatus, state,
-  tasksOf, toggleListMask
+  activeLists, deleteList, deleteTab, deleteTask, findList, findTab, findTask, listsOfTab, listStats, moveTask,
+  resetTaskOrder, setTaskList, setTaskStatus, state, tasksOf, toggleListMask, visibleTasks
 } from './state.js';
 import { persist } from './sync.js';
 import { cleanTabName, moveTab } from './tabs.js';
+import { stepTarget } from './taskOrder.js';
 import { byId, createId, plural } from './utils.js';
+import { initTaskDrag } from './ui/drag.js';
 import {
   askConfirm, closeModals, isTabsModalOpen, openListModal, openTabModal, openTabsModal, openTaskModal, renderTabManager
 } from './ui/modals.js';
 import {
-  render, renderLists, renderQuickWins, renderTabs, refreshTask, revealActiveTab, updateAllTaskScrollFades,
-  updateTabStripFade, updateTaskScrollFade
+  render, renderLists, renderQuickWins, renderTabs, refreshLists, refreshTask, revealActiveTab,
+  updateAllTaskScrollFades, updateTabStripFade, updateTaskScrollFade
 } from './ui/render.js';
 import { toggleTheme } from './ui/theme.js';
 import { toast } from './ui/toast.js';
@@ -58,6 +60,80 @@ function confirmDeleteTask(id) {
     confirmLabel: 'Supprimer',
     onConfirm: () => { deleteTask(id); commit('Tâche supprimée'); }
   });
+}
+
+/* ───────── Moving tasks ───────── */
+
+/** Saves and shows a move from the list `fromId`. */
+function commitTaskMove(task, fromId) {
+  persist();
+  refreshLists([fromId, task.listId]);
+  if (task.listId !== fromId) toast(`Tâche déplacée dans « ${findList(task.listId).name} »`);
+}
+
+/** A task was dropped on the board (drag and drop). */
+function dropTask(id, { listId, beforeId }) {
+  const task = findTask(id);
+  const fromId = task?.listId;
+  if (moveTask(id, listId, beforeId)) commitTaskMove(task, fromId);
+}
+
+/** Opens the tab a dragged task is held over, so that it can be dropped in one of its lists. */
+function openTabDuringDrag(id) {
+  if (!findTab(id) || id === state.activeTabId) return;
+  state.activeTabId = id;
+  render();
+}
+
+function focusDragHandle(id) {
+  const handle = document.querySelector(`#lists [data-drag-handle][data-id="${CSS.escape(id)}"]`);
+  handle?.focus();
+  handle?.scrollIntoView?.({ block: 'nearest' });
+}
+
+/** Moves a task one step up (-1) or down (1) among the tasks on screen. */
+function stepTask(task, offset) {
+  const target = stepTarget(visibleTasks(task.listId), task.id, offset);
+  if (!target || !moveTask(task.id, task.listId, target.beforeId)) return;
+  commitTaskMove(task, task.listId);
+  const visible = visibleTasks(task.listId);
+  toast(`Position ${visible.indexOf(task) + 1} sur ${visible.length}`);
+}
+
+/** Moves a task to the previous (-1) or next (1) list of the tab. */
+function sendTaskToList(task, offset) {
+  const lists = activeLists();
+  const fromId = task.listId;
+  const target = lists[lists.findIndex(l => l.id === fromId) + offset];
+  if (!target) return;
+  setTaskList(task, target.id);
+  commitTaskMove(task, fromId);
+}
+
+/** Arrow keys on a focused drag handle. */
+const HANDLE_KEYS = {
+  ArrowUp: task => stepTask(task, -1),
+  ArrowDown: task => stepTask(task, 1),
+  ArrowLeft: task => sendTaskToList(task, -1),
+  ArrowRight: task => sendTaskToList(task, 1)
+};
+
+function onHandleKeyDown(event) {
+  const handle = event.target.closest?.('[data-drag-handle]');
+  const move = HANDLE_KEYS[event.key];
+  const task = handle && move && findTask(handle.dataset.id);
+  if (!task || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+  event.preventDefault();
+  move(task);
+  // The card was rebuilt: keep the focus on the task that moved.
+  focusDragHandle(task.id);
+}
+
+function restoreAutomaticSort(id) {
+  resetTaskOrder(id);
+  persist();
+  refreshLists([id]);
+  toast('Tri automatique rétabli');
 }
 
 /* ───────── List actions ───────── */
@@ -228,6 +304,7 @@ const CLICK_ACTIONS = {
 
   'new-list': () => openListModal(),
   'edit-list': id => openListModal(findList(id)),
+  'auto-sort': id => restoreAutomaticSort(id),
   'mask-list': id => toggleMask(id),
   'del-list': id => confirmDeleteList(id),
   'restore': id => restoreList(id),
@@ -266,6 +343,7 @@ function onDoubleClick(event) {
 }
 
 function onKeyDown(event) {
+  onHandleKeyDown(event);
   if (event.key === 'Escape') closeModals();
   // Ctrl/Cmd + N: new task.
   if (event.key.toLowerCase() === 'n' && (event.metaKey || event.ctrlKey)) {
@@ -289,6 +367,7 @@ export function initActions() {
     updateAllTaskScrollFades();
   });
   document.addEventListener('keydown', onKeyDown);
+  initTaskDrag({ onDrop: dropTask, onTabHover: openTabDuringDrag });
 
   const search = byId('search');
   search.addEventListener('input', () => {

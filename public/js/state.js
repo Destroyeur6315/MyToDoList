@@ -3,10 +3,9 @@
  * Rendering reads from here; actions mutate it then call `persist()`.
  */
 
-import {
-  durationOf, QUICK_WIN_THRESHOLD, MAX_QUICK_WINS, STORAGE_KEYS
-} from './constants.js';
+import { QUICK_WIN_THRESHOLD, MAX_QUICK_WINS, STORAGE_KEYS } from './constants.js';
 import { normalizeTabs, tabAfterRemoval } from './tabs.js';
+import { hasManualOrder, insertTask, isAutomaticOrder, quickWinScore, sortTasks } from './taskOrder.js';
 import { readStorageJson, writeStorage } from './utils.js';
 
 /**
@@ -14,7 +13,7 @@ import { readStorageJson, writeStorage } from './utils.js';
  * @typedef {{ id: string, tabId: string, name: string, archived: boolean, archivedAt: number|null,
  *   createdAt: number }} List
  * @typedef {{ id: string, listId: string, name: string, description: string, duration: string,
- *   criticality: number, status: 'todo'|'doing'|'done', createdAt: number, completedAt: number|null }} Task
+ *   criticality: number, status: 'todo'|'doing'|'done', position: number|null, createdAt: number, completedAt: number|null }} Task
  */
 
 export const state = {
@@ -96,6 +95,49 @@ export function deleteTask(taskId) {
   state.tasks = state.tasks.filter(t => t.id !== taskId);
 }
 
+/**
+ * Changes the list of a task and lets that list decide of its place: sorted
+ * automatically, or last if the list is ordered by hand.
+ */
+export function setTaskList(task, listId) {
+  if (task.listId === listId) return;
+  task.listId = listId;
+  task.position = null;
+}
+
+/**
+ * Moves a task within its list or to another active list. The target list
+ * becomes ordered by hand, unless its automatic sort gives the same order.
+ * @param {string} taskId
+ * @param {string} listId Target list.
+ * @param {string | null} beforeId Task to insert before, `null` for the end.
+ * @returns {boolean} `false` when nothing changed.
+ */
+export function moveTask(taskId, listId, beforeId) {
+  const task = findTask(taskId);
+  const list = findList(listId);
+  if (!task || !list || list.archived) return false;
+
+  const current = sortTasks(tasksOf(listId));
+  const ordered = insertTask(current, task, beforeId);
+  const sameList = task.listId === listId;
+  if (sameList && ordered.every((t, index) => t.id === current[index].id)) return false;
+
+  setTaskList(task, listId);
+  const stored = tasksOf(listId);
+  const automatic = !hasManualOrder(stored) && isAutomaticOrder(ordered, stored);
+  ordered.forEach((t, index) => { t.position = automatic ? null : index; });
+  return true;
+}
+
+/** Whether the tasks of a list were ordered by hand. */
+export const isManuallyOrdered = listId => hasManualOrder(tasksOf(listId));
+
+/** Goes back to the automatic sort of a list. */
+export function resetTaskOrder(listId) {
+  for (const task of tasksOf(listId)) task.position = null;
+}
+
 /** Sets a task's status and keeps `completedAt` consistent with it. */
 export function setTaskStatus(task, status) {
   task.status = status;
@@ -121,15 +163,6 @@ export function listStats(listId) {
   };
 }
 
-/**
- * Quick-win score: high impact for little effort.
- * Impact goes from 4 (critical) to 1 (low), divided by the duration weight.
- */
-export function quickWinScore(task) {
-  const impact = 5 - Number(task.criticality);
-  return Math.round(impact / durationOf(task.duration).weight * 40);
-}
-
 export const isQuickWin = task => task.status !== 'done' && quickWinScore(task) >= QUICK_WIN_THRESHOLD;
 
 /** Best open quick wins, highest score first (ties: most critical first). */
@@ -149,13 +182,8 @@ export function matchesFilters(task) {
   return `${task.name} ${task.description || ''}`.toLowerCase().includes(query);
 }
 
-const STATUS_RANK = { doing: 0, todo: 1, done: 2 };
-
-/** In progress first, then to-do, then done; within a group by score then criticality. */
-export const sortTasks = tasks => tasks.slice().sort((a, b) =>
-  STATUS_RANK[a.status] - STATUS_RANK[b.status]
-  || quickWinScore(b) - quickWinScore(a)
-  || a.criticality - b.criticality);
+/** Tasks of a list shown on screen, in display order. */
+export const visibleTasks = listId => sortTasks(tasksOf(listId).filter(matchesFilters));
 
 /* ───────── Masked lists (device-local display preference) ───────── */
 
